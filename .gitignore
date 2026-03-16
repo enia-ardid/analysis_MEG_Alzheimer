@@ -4,6 +4,10 @@
 # Generated analysis outputs
 /outputs/
 /outputs_full_cohort/
+/figures/
+/tables/
+/captions_figures.md
+/captions_tables.md
 
 # Python caches and build artifacts
 __pycache__/

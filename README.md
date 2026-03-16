@@ -24,8 +24,41 @@ In practice, the workflow is:
 - `meg_alzheimer/`: core package
 - `run_group_analysis.py`: full raw-data-to-results entry point
 - `run_strong_hypotheses.py`: reruns only the final `H1-H3` confirmation step
+- `scripts/final_figures/`: scripts that regenerate manuscript figures
+- `scripts/final_tables/`: scripts that regenerate manuscript tables
 - `analysis_alzheimer.ipynb`: notebook for inspecting outputs after the batch run
 - `requirements.txt`: Python dependencies
+
+Generated figure files, table files, and caption drafts are treated as local
+artifacts and are not meant to be versioned in the public repository. They can
+be regenerated from the code in `scripts/` once the private dataset is
+available locally.
+
+Public-facing tree:
+
+```text
+.
+├── LICENSE
+├── README.md
+├── requirements.txt
+├── analysis_alzheimer.ipynb
+├── run_group_analysis.py
+├── run_strong_hypotheses.py
+├── meg_alzheimer/
+│   ├── __init__.py
+│   ├── atlas.py
+│   ├── connectivity.py
+│   ├── dataset.py
+│   ├── pipeline.py
+│   ├── signals.py
+│   ├── stats.py
+│   ├── strong_hypotheses.py
+│   └── viz.py
+└── scripts/
+    ├── README.md
+    ├── final_figures/
+    └── final_tables/
+```
 
 ## Expected data layout
 
@@ -80,7 +113,7 @@ python -m pip install -r requirements.txt
 
 Module:
 
-- [dataset.py](/Users/enia.ardid/Desktop/analysis_MEG_Alzheimer/meg_alzheimer/dataset.py)
+- [`meg_alzheimer/dataset.py`](meg_alzheimer/dataset.py)
 
 The loader inspects each `.mat` file, finds all top-level subject structs, and
 reconstructs the original organization of the data:
@@ -107,7 +140,7 @@ Why this step exists:
 
 Module:
 
-- [dataset.py](/Users/enia.ardid/Desktop/analysis_MEG_Alzheimer/meg_alzheimer/dataset.py)
+- [`meg_alzheimer/dataset.py`](meg_alzheimer/dataset.py)
 
 Only the central samples are analyzed:
 
@@ -126,7 +159,7 @@ Why this step exists:
 
 Module:
 
-- [signals.py](/Users/enia.ardid/Desktop/analysis_MEG_Alzheimer/meg_alzheimer/signals.py)
+- [`meg_alzheimer/signals.py`](meg_alzheimer/signals.py)
 
 Each cropped trial is filtered into the canonical bands used in the project:
 
@@ -159,7 +192,7 @@ Why this step exists:
 
 Module:
 
-- [connectivity.py](/Users/enia.ardid/Desktop/analysis_MEG_Alzheimer/meg_alzheimer/connectivity.py)
+- [`meg_alzheimer/connectivity.py`](meg_alzheimer/connectivity.py)
 
 For every trial, band, and ROI pair, the pipeline computes:
 
@@ -188,7 +221,7 @@ Why this step exists:
 
 Module:
 
-- [pipeline.py](/Users/enia.ardid/Desktop/analysis_MEG_Alzheimer/meg_alzheimer/pipeline.py)
+- [`meg_alzheimer/pipeline.py`](meg_alzheimer/pipeline.py)
 
 Each subject has multiple trials. The pipeline averages trial-level matrices:
 
@@ -216,8 +249,8 @@ Main subject output:
 
 Modules:
 
-- [atlas.py](/Users/enia.ardid/Desktop/analysis_MEG_Alzheimer/meg_alzheimer/atlas.py)
-- [pipeline.py](/Users/enia.ardid/Desktop/analysis_MEG_Alzheimer/meg_alzheimer/pipeline.py)
+- [`meg_alzheimer/atlas.py`](meg_alzheimer/atlas.py)
+- [`meg_alzheimer/pipeline.py`](meg_alzheimer/pipeline.py)
 
 The ROI-by-ROI matrix is then summarized using the Schaefer network labels.
 
@@ -255,7 +288,7 @@ Main outputs:
 
 Module:
 
-- [strong_hypotheses.py](/Users/enia.ardid/Desktop/analysis_MEG_Alzheimer/meg_alzheimer/strong_hypotheses.py)
+- [`meg_alzheimer/strong_hypotheses.py`](meg_alzheimer/strong_hypotheses.py)
 
 The final hypotheses are not tested on every possible edge. They are tested on
 targeted composites derived from the network summaries.
@@ -292,7 +325,7 @@ Why this step exists:
 
 Module:
 
-- [strong_hypotheses.py](/Users/enia.ardid/Desktop/analysis_MEG_Alzheimer/meg_alzheimer/strong_hypotheses.py)
+- [`meg_alzheimer/strong_hypotheses.py`](meg_alzheimer/strong_hypotheses.py)
 
 The final strong report tests six fixed endpoints:
 
@@ -416,6 +449,9 @@ The most important outputs are:
 - `outputs_full_cohort/strong_hypotheses/hypothesis_summary.csv`
 - `outputs_full_cohort/strong_hypotheses/strong_summary.md`
 
+These outputs are generated locally and are ignored by Git in the public
+repository configuration.
+
 ## Notebook usage
 
 After the batch run:
@@ -453,3 +489,22 @@ That path is sufficient to reproduce:
 - subject-level matrices
 - network summaries
 - the strong confirmation report for `H1-H3`
+
+## Manuscript artifact scripts
+
+Once the cohort outputs exist locally, the scripts under `scripts/` can be used
+to regenerate manuscript-facing figures and tables. The repository keeps those
+generation scripts, but not the generated `.png`, `.pdf`, `.csv`, or `.tex`
+artifacts.
+
+- `scripts/final_tables/build_cohort_main_table.py`
+- `scripts/final_tables/build_cohort_qc_table.py`
+- `scripts/final_figures/build_qc_valid_trials_figure.py`
+- `scripts/final_figures/build_network_heatmaps.py`
+- `scripts/final_figures/build_endpoints_main_figure.py`
+- `scripts/final_figures/build_forest_endpoints.py`
+- `scripts/final_figures/build_composite_breakdown.py`
+- `scripts/final_figures/build_robustness_figure.py`
+
+The post hoc exact-network checks live alongside those scripts but remain
+separate from the confirmatory `H1-H3` workflow.

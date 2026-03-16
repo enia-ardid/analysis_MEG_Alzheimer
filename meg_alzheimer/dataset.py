@@ -26,18 +26,8 @@ DEFAULT_GROUP_ALIASES = {
     "CONVERTER": "Converter",
     "CONVERTERS": "Converter",
     "NC": "Non-converter",
-    "NONCONVERTER": "Non-converter",
     "NON-CONVERTER": "Non-converter",
-    "NONCONVERTERS": "Non-converter",
     "NON-CONVERTERS": "Non-converter",
-    "AD": "AD",
-    "ALZHEIMER": "AD",
-    "ALZHEIMERS": "AD",
-    "CONTROL": "Control",
-    "CONTROLS": "Control",
-    "CTRL": "Control",
-    "HC": "Control",
-    "HEALTHY": "Control",
 }
 
 
