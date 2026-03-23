@@ -42,15 +42,16 @@ python run_validate_inputs.py \
   --require-paper-atlas
 ```
 
-## Smoke-run the pipeline
+## Automated public smoke test
 
 ```bash
-python run_group_analysis.py \
-  --data-root examples/brainstorm_roi_small/data \
-  --output-root examples/brainstorm_roi_small/outputs \
-  --hypothesis-n-perm 100 \
-  --hypothesis-n-boot 200
+python -m unittest tests.test_public_smoke -v
 ```
 
-The run above is only a structural smoke test. With such a small synthetic
-cohort, the resulting group statistics are not scientifically interpretable.
+This smoke test goes beyond format validation. It loads the public example
+dataset, reconstructs the `trial x ROI x time` tensor for one subject, crops
+the central analysis window, and computes the alpha-band subject-level
+connectivity matrices. That makes it suitable for CI while keeping runtime
+short and deterministic.
+
+The example dataset is not intended for scientific interpretation.

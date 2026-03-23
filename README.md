@@ -35,6 +35,10 @@ manuscript outputs are not.
 ```text
 .
 ├── README.md
+├── CITATION.cff
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── docs/
 │   └── roi_input_contract.md
 ├── environment.yml
@@ -50,8 +54,6 @@ manuscript outputs are not.
 ├── run_strong_hypotheses.py
 ├── run_paper_figures.py
 ├── simulation_aec_snr_bias/
-├── notebooks/
-│   └── analysis_alzheimer.ipynb
 ├── meg_alzheimer/
 │   ├── __init__.py
 │   ├── atlas.py
@@ -331,6 +333,12 @@ conda env create -f environment.yml
 conda activate meg-alzheimer-paper
 ```
 
+## Citation
+
+The repository includes machine-readable citation metadata:
+
+- [CITATION.cff](CITATION.cff)
+
 ## Tests
 
 The public test suite avoids private data and checks only the stable logic that
@@ -344,6 +352,7 @@ The tests cover:
 
 - dataset loading helpers
 - atlas/network collapsing
+- public example-dataset smoke execution
 - signal-processing helpers
 - endpoint reconstruction logic
 - trial-threshold sensitivity bookkeeping
@@ -362,6 +371,12 @@ python run_validate_inputs.py --data-root data --require-paper-atlas
 python run_validate_inputs.py \
   --data-root examples/brainstorm_roi_small/data \
   --require-paper-atlas
+```
+
+### Run the public smoke test
+
+```bash
+python -m unittest tests.test_public_smoke -v
 ```
 
 ### Full batch: raw data to paper figures
@@ -411,10 +426,3 @@ python run_strong_hypotheses.py --output-root outputs_full_cohort
   [meg_alzheimer/atlas.py](meg_alzheimer/atlas.py). Other ROI atlases are still
   compatible with the low-level signal-processing code, but not with the paper
   endpoint definitions without explicit adaptation.
-
-## Optional notebook
-
-The notebook at [notebooks/analysis_alzheimer.ipynb](notebooks/analysis_alzheimer.ipynb)
-is retained as a local inspection notebook. It is not part of the canonical
-raw-data-to-paper workflow and should not be treated as the authoritative path
-for reproducing the manuscript outputs.
