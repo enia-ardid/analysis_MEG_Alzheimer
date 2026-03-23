@@ -22,13 +22,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import MaxNLocator
 
-from scripts.final_tables.build_cohort_qc_table import (
-    GROUP_A,
-    GROUP_B,
-    _subject_qc_frame,
-    _verify_subject_manifest,
-    discover_subjects,
-)
+from meg_alzheimer.dataset import discover_subjects
+from meg_alzheimer.qc import build_subject_qc_frame, verify_subject_manifest
+
+
+GROUP_A = "Converter"
+GROUP_B = "Non-converter"
 
 
 def parse_args() -> argparse.Namespace:
@@ -66,19 +65,30 @@ def _style() -> None:
     )
 
 
-def _append_caption(path: Path) -> None:
+def _upsert_caption(path: Path) -> None:
+    heading = "## Figure: Valid trials per subject"
     block = (
-        "## Figure: Valid trials per subject\n\n"
+        f"{heading}\n\n"
         "Suggested caption: Number of valid trials per subject in the Converter and Non-converter groups. "
         "Each point corresponds to one subject, and the box summarizes the group distribution. "
         "Valid trials were defined exactly as in the cohort/QC table, i.e. as the number of clean 8-second source-space "
         "segments available in the Brainstorm `Value` matrix before within-subject averaging.\n"
     )
-    if path.exists() and path.read_text().strip():
-        existing = path.read_text().rstrip() + "\n\n"
+    text = path.read_text() if path.exists() else ""
+    if heading in text:
+        start = text.index(heading)
+        next_idx = text.find("\n## ", start + 1)
+        end = len(text) if next_idx == -1 else next_idx + 1
+        text = text[:start] + block + text[end:]
     else:
-        existing = ""
-    path.write_text(existing + block)
+        text = text.rstrip() + ("\n\n" if text.strip() else "") + block
+    path.write_text(text)
+
+
+PALETTE = {
+    GROUP_A: {"fill": "#c9d7df", "point": "#2f5d73"},
+    GROUP_B: {"fill": "#eadfbd", "point": "#9a7b2f"},
+}
 
 
 def main() -> None:
@@ -90,8 +100,8 @@ def main() -> None:
     if not records:
         raise SystemExit(f"No subjects found under {args.data_root}.")
 
-    subject_df = _subject_qc_frame(records)
-    _verify_subject_manifest(subject_df, Path(args.subjects_csv))
+    subject_df = build_subject_qc_frame(records)
+    verify_subject_manifest(subject_df, Path(args.subjects_csv))
 
     groups = [GROUP_A, GROUP_B]
     values = [
@@ -103,7 +113,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     _style()
 
-    fig, ax = plt.subplots(figsize=(5.2, 4.1))
+    fig, ax = plt.subplots(figsize=(5.4, 4.2))
     box = ax.boxplot(
         values,
         positions=[1, 2],
@@ -111,8 +121,9 @@ def main() -> None:
         patch_artist=True,
         showfliers=False,
     )
-    for patch in box["boxes"]:
-        patch.set_facecolor("white")
+    for patch, group in zip(box["boxes"], groups):
+        patch.set_facecolor(PALETTE[group]["fill"])
+        patch.set_alpha(0.55)
         patch.set_edgecolor("#111111")
         patch.set_linewidth(1.2)
     for artist_name in ("whiskers", "caps", "medians"):
@@ -121,13 +132,13 @@ def main() -> None:
             artist.set_linewidth(1.1)
 
     rng = np.random.default_rng(0)
-    for xpos, vals in zip([1, 2], values):
+    for xpos, group, vals in zip([1, 2], groups, values):
         jitter = rng.normal(loc=0.0, scale=0.045, size=len(vals))
         ax.scatter(
             np.full(len(vals), xpos, dtype=float) + jitter,
             vals,
             s=18,
-            facecolor="#4a4a4a",
+            facecolor=PALETTE[group]["point"],
             edgecolor="#111111",
             linewidth=0.3,
             alpha=0.80,
@@ -137,7 +148,7 @@ def main() -> None:
     ax.set_xticks([1, 2], [f"{GROUP_A}\n(n={counts[0]})", f"{GROUP_B}\n(n={counts[1]})"])
     ax.set_ylabel("Valid trials per subject")
     ax.set_xlabel("Group")
-    ax.set_title("Quality control: valid trials per subject")
+    ax.set_title("Valid trials per subject")
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
     ax.grid(axis="y", color="#d8d8d8", linewidth=0.8)
     ax.set_axisbelow(True)
@@ -149,7 +160,7 @@ def main() -> None:
     fig.savefig(pdf_path)
     plt.close(fig)
 
-    _append_caption(captions_path)
+    _upsert_caption(captions_path)
 
     print(f"Input: raw MATLAB files under {args.data_root} + cohort manifest {args.subjects_csv}")
     print("Definition: n_valid_trials = Value.shape[0] / 102")

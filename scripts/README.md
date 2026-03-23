@@ -1,29 +1,31 @@
-# Script Layout
+# Manuscript scripts
 
-This directory contains the source scripts used to regenerate manuscript-facing
-artifacts from locally available cohort outputs.
+This directory contains the downstream scripts that regenerate manuscript
+artifacts from the private local dataset and the outputs produced by the core
+pipeline.
 
-## Subdirectories
+## Figure scripts kept in the maintained path
 
-- `final_figures/`: builds publication-ready figure files from
-  `outputs_full_cohort/`
-- `final_tables/`: builds manuscript tables from the same local outputs
+- [final_figures/build_pipeline_overview.py](final_figures/build_pipeline_overview.py)
+- [final_figures/build_qc_valid_trials_figure.py](final_figures/build_qc_valid_trials_figure.py)
+- [final_figures/build_network_heatmaps.py](final_figures/build_network_heatmaps.py)
+- [final_figures/build_composite_breakdown.py](final_figures/build_composite_breakdown.py)
+- [final_figures/build_endpoints_main_figure.py](final_figures/build_endpoints_main_figure.py)
+- [final_figures/build_trials_threshold_sensitivity.py](final_figures/build_trials_threshold_sensitivity.py)
 
-## Canonical entry points
+These scripts are the ones called by [run_paper_figures.py](../run_paper_figures.py).
 
-The main scientific pipeline is not launched from this directory. The canonical
-top-level entry points remain:
+## Table scripts kept in the maintained path
 
-- `run_group_analysis.py`: raw Brainstorm `.mat` files to cohort outputs
-- `run_strong_hypotheses.py`: final strong testing of `H1-H3`
+- [final_tables/build_cohort_main_table.py](final_tables/build_cohort_main_table.py)
+- [final_tables/build_cohort_qc_table.py](final_tables/build_cohort_qc_table.py)
 
-The scripts in this folder sit downstream of those entry points. They assume
-that local outputs already exist and are intended to regenerate figures and
-tables without redefining the underlying methodology.
+## Design rule
 
-## Publication policy
+The scripts in this directory should not redefine the scientific pipeline.
+They sit downstream of:
 
-The public repository is configured to version the code in `scripts/`, but not
-the generated files under `figures/`, `tables/`, or the caption drafts written
-to the repository root. Those artifacts are reproducible from the scripts once
-the private dataset is available locally.
+- [run_group_analysis.py](../run_group_analysis.py)
+- [run_strong_hypotheses.py](../run_strong_hypotheses.py)
+
+Their job is to format and export the paper-facing outputs from those results.

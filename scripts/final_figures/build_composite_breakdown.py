@@ -33,6 +33,7 @@ GROUP_A = "Converter"
 GROUP_B = "Non-converter"
 NETWORK_ORDER = ["Control", "Default", "DorsAttn", "Limbic", "SalVentAttn", "SomMot", "TempPar", "VisCent", "VisPeri"]
 METRICS = ["AEC", "AEC-orth"]
+DISPLAY_SCALE = 100.0
 
 
 def parse_args() -> argparse.Namespace:
@@ -225,7 +226,8 @@ def _mask_matrix(pair_labels: list[str]) -> np.ndarray:
 def _plot_mask(ax: plt.Axes, pair_labels: list[str], title: str) -> None:
     mask = _mask_matrix(pair_labels)
     temp_idx = NETWORK_ORDER.index("TempPar")
-    ax.imshow(mask, cmap="Greys", vmin=0.0, vmax=1.0, origin="upper")
+    cmap = plt.matplotlib.colors.ListedColormap(["#fbfbfb", "#506c80"])
+    ax.imshow(mask, cmap=cmap, vmin=0.0, vmax=1.0, origin="upper")
     ax.set_xticks(np.arange(len(NETWORK_ORDER)))
     ax.set_yticks(np.arange(len(NETWORK_ORDER)))
     ax.set_xticklabels(NETWORK_ORDER, rotation=45, ha="right")
@@ -247,10 +249,22 @@ def _plot_mask(ax: plt.Axes, pair_labels: list[str], title: str) -> None:
 
 
 def _plot_bars(ax: plt.Axes, data: pd.DataFrame, title: str, xlim: float, show_ylabels: bool) -> None:
-    ypos = np.arange(len(data))[::-1]
-    labels = data["pair_label"].tolist()
-    vals = data["delta_group_a_minus_group_b"].to_numpy(dtype=float)
-    ax.barh(ypos, vals, color="#6d6d6d", edgecolor="#111111", linewidth=0.7)
+    plot_data = data.copy()
+    composite_row = {
+        "pair_label": "Composite mean",
+        "delta_group_a_minus_group_b": float(plot_data["delta_group_a_minus_group_b"].mean()),
+        "mean_converter": float(plot_data["mean_converter"].mean()),
+        "mean_non_converter": float(plot_data["mean_non_converter"].mean()),
+    }
+    plot_data = pd.concat([plot_data, pd.DataFrame([composite_row])], ignore_index=True)
+
+    ypos = np.arange(len(plot_data))[::-1]
+    labels = plot_data["pair_label"].tolist()
+    vals = DISPLAY_SCALE * plot_data["delta_group_a_minus_group_b"].to_numpy(dtype=float)
+    is_composite = plot_data["pair_label"].eq("Composite mean").to_numpy()
+    colors = np.where(vals < 0.0, "#54748a", "#b6765f")
+    colors = np.where(is_composite, "#1f1f1f", colors)
+    ax.barh(ypos, vals, color=colors, edgecolor="#111111", linewidth=0.7)
     ax.axvline(0.0, color="#888888", linestyle="--", linewidth=1.0)
     ax.set_xlim(-xlim, xlim)
     ax.set_title(title)
@@ -260,7 +274,21 @@ def _plot_bars(ax: plt.Axes, data: pd.DataFrame, title: str, xlim: float, show_y
         ax.set_yticks(ypos, labels)
     else:
         ax.set_yticks(ypos, [])
-    ax.set_xlabel("Mean difference (C - NC)")
+    ax.set_xlabel(r"Group difference (C - NC, $\times 10^{-2}$ correlation units)")
+
+    for y, row, value in zip(ypos, plot_data.itertuples(index=False), vals):
+        nc_mean = float(row.mean_non_converter)
+        if abs(nc_mean) > 1e-12:
+            relative_pct = 100.0 * (float(row.mean_converter) / nc_mean - 1.0)
+            label = f"{relative_pct:+.0f}%"
+            text_x = value + (0.03 * xlim if value >= 0 else -0.03 * xlim)
+            ha = "left" if value >= 0 else "right"
+            ax.text(text_x, y, label, va="center", ha=ha, fontsize=8.4, color="#333333")
+
+    if "Composite mean" in labels:
+        composite_index = labels.index("Composite mean")
+        composite_y = ypos[composite_index]
+        ax.axhline(composite_y + 0.5, color="#b8b8b8", linewidth=0.9)
 
 
 def main() -> None:
@@ -312,14 +340,20 @@ def main() -> None:
         xlim = float(
             np.max(
                 np.abs(
-                    np.r_[
+                    DISPLAY_SCALE * np.r_[
                         aec["delta_group_a_minus_group_b"].to_numpy(dtype=float),
                         orth["delta_group_a_minus_group_b"].to_numpy(dtype=float),
                     ]
                 )
             )
         )
-        xlim = max(xlim * 1.15, 1e-3)
+        composite_deltas = DISPLAY_SCALE * np.array(
+            [
+                float(aec["delta_group_a_minus_group_b"].mean()),
+                float(orth["delta_group_a_minus_group_b"].mean()),
+            ]
+        )
+        xlim = max(np.max(np.abs(np.r_[xlim, composite_deltas])) * 1.22, 1.0)
 
         _plot_bars(
             axes[row_idx, 1],
@@ -348,8 +382,10 @@ def main() -> None:
         "Suggested caption: Breakdown of the network pairs included in the H1 and H2 composites. "
         "The left column shows the inclusion mask at the collapsed 9-network level used by the main pipeline, "
         "with TempPar highlighted on both axes. The middle and right columns show the group difference "
-        "(Converter minus Non-converter) for each included network pair in AEC and AEC-orth, respectively. "
-        "All included pairs have equal weight within each composite: 1/9 for H1 and 1/8 for H2.",
+        "(Converter minus Non-converter) for each included network pair in AEC and AEC-orth, respectively, "
+        "displayed in scaled correlation units ($\\times 10^{-2}$). Text labels indicate the relative change "
+        "of Converters with respect to Non-converters for each pair, and the final row reports the equal-weight "
+        "composite mean. All included pairs have equal weight within each composite: 1/9 for H1 and 1/8 for H2.",
     )
     _upsert_caption(
         captions_tables,

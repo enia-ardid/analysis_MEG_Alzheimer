@@ -30,6 +30,7 @@ from meg_alzheimer.strong_hypotheses import STRONG_ENDPOINTS, _extract_endpoint_
 
 GROUP_A = "Converter"
 GROUP_B = "Non-converter"
+DISPLAY_SCALE = 100.0
 
 
 def parse_args() -> argparse.Namespace:
@@ -205,12 +206,17 @@ def _draw_endpoint_panel(
 ) -> None:
     values_a = frame.loc[frame["group"] == GROUP_A, "value"].to_numpy(dtype=float)
     values_b = frame.loc[frame["group"] == GROUP_B, "value"].to_numpy(dtype=float)
-    values = [values_a, values_b]
+    values = [DISPLAY_SCALE * values_a, DISPLAY_SCALE * values_b]
     positions = [1, 2]
+    palette = {
+        GROUP_A: {"fill": "#c9d7df", "point": "#2f5d73"},
+        GROUP_B: {"fill": "#eadfbd", "point": "#9a7b2f"},
+    }
 
     box = ax.boxplot(values, positions=positions, widths=0.52, patch_artist=True, showfliers=False)
-    for patch in box["boxes"]:
-        patch.set_facecolor("white")
+    for patch, group in zip(box["boxes"], [GROUP_A, GROUP_B]):
+        patch.set_facecolor(palette[group]["fill"])
+        patch.set_alpha(0.55)
         patch.set_edgecolor("#111111")
         patch.set_linewidth(1.2)
     for artist_name in ("whiskers", "caps", "medians"):
@@ -219,14 +225,13 @@ def _draw_endpoint_panel(
             artist.set_linewidth(1.1)
 
     rng = np.random.default_rng(seed)
-    point_face = {"Converter": "#5a5a5a", "Non-converter": "#a0a0a0"}
     for xpos, group, vals in zip(positions, [GROUP_A, GROUP_B], values):
         jitter = rng.normal(loc=0.0, scale=0.045, size=len(vals))
         ax.scatter(
             np.full(len(vals), xpos, dtype=float) + jitter,
             vals,
             s=16,
-            facecolor=point_face[group],
+            facecolor=palette[group]["point"],
             edgecolor="#111111",
             linewidth=0.3,
             alpha=0.85,
@@ -250,8 +255,10 @@ def _draw_endpoint_panel(
     ax.set_title(title)
     ax.grid(axis="y", color="#d8d8d8", linewidth=0.8)
     ax.set_axisbelow(True)
+    nc_mean = float(row["mean_group_b"])
+    delta_percent = 100.0 * (float(row["mean_group_a"]) / nc_mean - 1.0)
     annotation = (
-        f"Δ={row['delta_group_a_minus_group_b']:.4f}\n"
+        f"C vs NC={delta_percent:+.1f}%\n"
         f"d={row['effect_size_d']:.3f}\n"
         f"Holm={row['holm_p_one_sided']:.4g}\n"
         f"max-T={row['max_t_p_one_sided']:.4g}"
@@ -289,14 +296,14 @@ def main() -> None:
     table_dir.mkdir(parents=True, exist_ok=True)
 
     fig, axes = plt.subplots(3, 2, figsize=(11.4, 11.8), constrained_layout=True)
-    fig.suptitle("Main endpoint distributions", fontsize=15)
+    fig.suptitle("Endpoint distributions", fontsize=15)
     for idx, spec in enumerate(STRONG_ENDPOINTS):
         ax = axes.flat[idx]
         frame = endpoint_frames[spec.endpoint_id]
         row = endpoint_report.loc[endpoint_report["endpoint_id"] == spec.endpoint_id].iloc[0]
         _draw_endpoint_panel(ax, frame=frame, row=row, title=spec.label, seed=idx)
         if idx % 2 == 0:
-            ax.set_ylabel("Composite value")
+            ax.set_ylabel(r"Composite connectivity ($\times 10^{-2}$ correlation units)")
     png_path = figure_dir / "fig_endpoints_distributions.png"
     pdf_path = figure_dir / "fig_endpoints_distributions.pdf"
     fig.savefig(png_path)
@@ -315,9 +322,10 @@ def main() -> None:
         "Suggested caption: Distribution of the six predefined study endpoints across Converter and "
         "Non-converter subjects. Each panel shows the subject-level endpoint values reconstructed from "
         "`subject_network_means.csv` using the same endpoint definitions as the strong H1-H3 analysis. "
-        "Individual points are overlaid on boxplots, black markers indicate group means with bootstrap 95% "
-        "confidence intervals, and each panel reports the mean difference, Cohen's d, Holm-adjusted one-sided "
-        "p-value, and max-T corrected one-sided p-value from the existing strong endpoint report.",
+        "For readability, the vertical axis is displayed in scaled correlation units ($\\times 10^{-2}$), "
+        "while the panel annotation reports the relative change of Converters with respect to Non-converters, "
+        "together with Cohen's d, the Holm-adjusted one-sided p-value, and the max-T corrected one-sided p-value. "
+        "Colored points are individual subjects and black markers indicate group means with bootstrap 95% confidence intervals.",
     )
     _upsert_caption(
         captions_tables,

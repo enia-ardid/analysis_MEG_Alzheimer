@@ -1,55 +1,65 @@
-# MEG Connectivity Analysis for Converters vs Non-converters
+# MEG Connectivity Pipeline for ROI Time-Series Connectivity Analysis
 
-This repository contains a streamlined analysis pipeline for taking raw
-Brainstorm source-space `.mat` files and turning them into subject-level
-connectivity matrices, network-level summaries, and strongly tested hypotheses.
+This repository is the maintained raw-data-to-paper code path used in the
+manuscript. It starts from private Brainstorm source-space ROI exports and
+rebuilds the complete empirical workflow used in the paper figures.
 
-The code is organized around one main idea: every processing step should move
-the data from a lower-level representation to a representation that matches the
-scientific question more directly.
+The public code is intentionally narrow:
 
-In practice, the workflow is:
+- load ROI time-series `.mat` exports from `data/`
+- rebuild `trial x ROI x time` tensors
+- compute trial-wise connectivity
+- average within subject
+- summarize ROI matrices at the network level
+- build the predefined endpoint family `H1-H3`
+- export the seven paper figures
 
-1. load raw subject structs from `data/`
-2. reconstruct `trial x ROI x time` arrays
-3. keep the clean 4-second segment from each 8-second padded trial
-4. compute band-limited connectivity per trial
-5. average trials within each subject
-6. summarize ROI-by-ROI matrices at the network level
-7. build hypothesis-specific composites
-8. test hypotheses `H1-H3` with strong family-wise correction
+Generated outputs under `figures/`, `tables/`, and `outputs_full_cohort/` are
+local artifacts. The code is versioned; the private data and the derived
+manuscript outputs are not.
+
+## Canonical entry points
+
+- [run_group_analysis.py](run_group_analysis.py)
+  Raw Brainstorm `.mat` files to cohort outputs and strong `H1-H3` testing.
+- [run_strong_hypotheses.py](run_strong_hypotheses.py)
+  Refresh only the final `H1-H3` report from an existing output folder.
+- [run_paper_figures.py](run_paper_figures.py)
+  Regenerate the paper figure set from raw data or from existing outputs.
+- [run_validate_inputs.py](run_validate_inputs.py)
+  Check whether a local ROI time-series dataset matches the structural contract
+  expected by the public pipeline.
 
 ## Repository layout
 
-- `meg_alzheimer/`: core package
-- `run_group_analysis.py`: full raw-data-to-results entry point
-- `run_strong_hypotheses.py`: reruns only the final `H1-H3` confirmation step
-- `scripts/final_figures/`: scripts that regenerate manuscript figures
-- `scripts/final_tables/`: scripts that regenerate manuscript tables
-- `analysis_alzheimer.ipynb`: notebook for inspecting outputs after the batch run
-- `requirements.txt`: Python dependencies
-
-Generated figure files, table files, and caption drafts are treated as local
-artifacts and are not meant to be versioned in the public repository. They can
-be regenerated from the code in `scripts/` once the private dataset is
-available locally.
-
-Public-facing tree:
-
 ```text
 .
-├── LICENSE
 ├── README.md
+├── docs/
+│   └── roi_input_contract.md
+├── environment.yml
+├── examples/
+│   ├── README.md
+│   ├── build_example_dataset.py
+│   └── brainstorm_roi_small/
+│       └── data/
 ├── requirements.txt
-├── analysis_alzheimer.ipynb
+├── tests/
+├── run_validate_inputs.py
 ├── run_group_analysis.py
 ├── run_strong_hypotheses.py
+├── run_paper_figures.py
+├── simulation_aec_snr_bias/
+├── notebooks/
+│   └── analysis_alzheimer.ipynb
 ├── meg_alzheimer/
 │   ├── __init__.py
 │   ├── atlas.py
 │   ├── connectivity.py
 │   ├── dataset.py
 │   ├── pipeline.py
+│   ├── qc.py
+│   ├── robustness.py
 │   ├── signals.py
 │   ├── stats.py
 │   ├── strong_hypotheses.py
@@ -60,9 +70,9 @@ Public-facing tree:
     └── final_tables/
 ```
 
-## Expected data layout
+## Input contract and portability
 
-The pipeline expects Brainstorm-style `.mat` files under `data/`:
+The pipeline expects Brainstorm-style MATLAB exports under `data/`:
 
 ```text
 data/
@@ -74,94 +84,79 @@ data/
 └── NC_p3.mat
 ```
 
-The current group mapping is:
+Current group discovery:
 
-- `C_*` -> `Converter`
-- `NC_*` -> `Non-converter`
+- `C_* -> Converter`
+- `NC_* -> Non-converter`
 
-Each top-level subject struct is expected to contain:
+Each subject struct is expected to contain:
 
 - `Value`: ROI time series stacked trial by trial
 - `Time`: sample axis
 - `Atlas`: ROI labels
 
-For a subject with `T` trials, `Value` is expected to have shape:
+For a subject with `T` clean trials, `Value` has shape `(T * 102, 8000)`.
 
-\[
-(T \cdot 102) \times 8000
-\]
+The repository starts from source-space ROI time series that were already
+exported upstream. Sensor-space preprocessing and source reconstruction are not
+executed here; they are external preparation steps.
 
-where:
+For a detailed contract aimed at other labs, see:
 
-- `102` is the number of Schaefer ROIs in the source export
-- `8000` samples correspond to 8 seconds at 1000 Hz
-- the central `2000:6000` samples contain the clean 4-second segment of
-  interest
+- [docs/roi_input_contract.md](docs/roi_input_contract.md)
 
-## Installation
+In short:
+
+- if another lab can export ROI time series in the same Brainstorm-like struct
+  format, the low-level pipeline can be reused without changing the signal
+  processing
+- exact reproduction of the paper endpoints and figures also requires the same
+  Schaefer-style ROI naming conventions used by `meg_alzheimer/atlas.py`
+
+Validate a new dataset before running the full workflow:
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+python run_validate_inputs.py --data-root data --require-paper-atlas
 ```
 
-## End-to-end workflow
+For a public smoke example that matches the same struct contract, see:
 
-### Stage 1. Raw `.mat` files to subject tensors
+- [examples/README.md](examples/README.md)
 
-Module:
+## Scientific pipeline
 
-- [`meg_alzheimer/dataset.py`](meg_alzheimer/dataset.py)
+### 1. Subject loading and trial reconstruction
 
-The loader inspects each `.mat` file, finds all top-level subject structs, and
-reconstructs the original organization of the data:
+Code:
 
-\[
-X_s(\tau, i, n)
-\]
+- [meg_alzheimer/dataset.py](meg_alzheimer/dataset.py)
 
-with:
+The Brainstorm export stores trials as one long stack of ROI blocks. The loader
+reconstructs the original organization:
 
-- \(s\): subject
-- \(\tau\): trial
-- \(i\): ROI
-- \(n\): time sample
+- subject
+- trial
+- ROI
+- time
 
-Why this step exists:
+This keeps the subject, not the trial, as the later statistical unit.
 
-- the Brainstorm export stores all trials as one long stack of ROI blocks
-- connectivity must be computed trial by trial, not on the flattened matrix
-- the subject, not the trial, is the unit that will later enter the group
-  statistics
+### 2. Central window selection
 
-### Stage 2. Keep the central clean segment
+Code:
 
-Module:
+- [meg_alzheimer/dataset.py](meg_alzheimer/dataset.py)
 
-- [`meg_alzheimer/dataset.py`](meg_alzheimer/dataset.py)
+Each trial contains 8 seconds of data at 1000 Hz. The pipeline keeps the
+central 4-second segment (`2000:6000`) to avoid filter-edge contamination.
 
-Only the central samples are analyzed:
+### 3. Band-limited analytic signals
 
-\[
-X^{mid}_s(\tau, i, n) = X_s(\tau, i, n), \quad n \in [2000, 6000)
-\]
+Code:
 
-Why this step exists:
+- [meg_alzheimer/signals.py](meg_alzheimer/signals.py)
 
-- the raw file keeps 2 seconds before and after the segment of interest
-- this padding is useful during filtering
-- the central 4-second window avoids edge artifacts created by band-pass
-  filtering
-
-### Stage 3. Band-limited analytic signals
-
-Module:
-
-- [`meg_alzheimer/signals.py`](meg_alzheimer/signals.py)
-
-Each cropped trial is filtered into the canonical bands used in the project:
+Each cropped trial is filtered into:
 
 - delta
 - theta
@@ -169,30 +164,20 @@ Each cropped trial is filtered into the canonical bands used in the project:
 - beta
 - gamma
 
-If \(x^{(b)}(t)\) is the filtered signal in band \(b\), the analytic signal is:
+The implementation uses an FIR filter built with `scipy.signal.firwin`:
 
-\[
-z^{(b)}(t) = x^{(b)}(t) + j \mathcal{H}\{x^{(b)}(t)\}
-\]
+- Hamming window
+- `numtaps = 801`
+- zero-phase application via `filtfilt`
 
-and the envelope is:
+The Hilbert transform is then used to obtain the analytic signal and amplitude
+envelope.
 
-\[
-a^{(b)}(t) = |z^{(b)}(t)|
-\]
+### 4. Trial-wise connectivity
 
-Why this step exists:
+Code:
 
-- the hypotheses are frequency-specific
-- `AEC` and `AEC-orth` operate on band-limited envelopes
-- the Hilbert transform is the standard way to extract those envelopes from
-  oscillatory signals
-
-### Stage 4. Trial-wise connectivity matrices
-
-Module:
-
-- [`meg_alzheimer/connectivity.py`](meg_alzheimer/connectivity.py)
+- [meg_alzheimer/connectivity.py](meg_alzheimer/connectivity.py)
 
 For every trial, band, and ROI pair, the pipeline computes:
 
@@ -200,134 +185,57 @@ For every trial, band, and ROI pair, the pipeline computes:
 - `AEC`
 - `AEC-orth`
 
-`AEC` is the Pearson correlation between ROI envelopes:
+`AEC` and `AEC-orth` are unitless correlation-based connectivity measures.
+Negative values are kept; no Fisher transform is applied in the main analysis.
 
-\[
-AEC_{ij}^{(b)} = corr(a_i^{(b)}, a_j^{(b)})
-\]
+### 5. Within-subject averaging
 
-`AEC-orth` first orthogonalizes one analytic signal with respect to the other to
-reduce zero-lag mixing, then correlates envelopes of the orthogonalized
-components.
+Code:
 
-Why this step exists:
+- [meg_alzheimer/pipeline.py](meg_alzheimer/pipeline.py)
 
-- trial-wise estimation preserves the original segmentation of the recording
-- `AEC` captures amplitude co-fluctuations
-- `AEC-orth` provides a more conservative envelope measure that is less
-  sensitive to instantaneous source leakage
+Trial-level matrices are averaged within subject. This avoids
+pseudoreplication and preserves the subject as the unit that enters the group
+comparisons.
 
-### Stage 5. Subject-level connectivity matrices
+### 6. ROI to network summary
 
-Module:
+Code:
 
-- [`meg_alzheimer/pipeline.py`](meg_alzheimer/pipeline.py)
+- [meg_alzheimer/atlas.py](meg_alzheimer/atlas.py)
 
-Each subject has multiple trials. The pipeline averages trial-level matrices:
+The source export contains 102 ROI labels:
 
-\[
-\bar{C}_{s,b,m}(i,j) = \frac{1}{T_s}\sum_{\tau=1}^{T_s} C_{s,\tau,b,m}(i,j)
-\]
+- 100 Schaefer parcels
+- 2 medial-wall/background labels
 
-where:
+The two background labels are excluded from network summaries. The main paper
+uses a collapsed 9-network family:
 
-- \(b\): frequency band
-- \(m\): connectivity metric
-- \(T_s\): number of trials for subject \(s\)
+- `Control`
+- `Default`
+- `DorsAttn`
+- `Limbic`
+- `SalVentAttn`
+- `SomMot`
+- `TempPar`
+- `VisCent`
+- `VisPeri`
 
-Why this step exists:
+This network collapsing rule is paper-specific. If another lab uses a
+different atlas, the core connectivity pipeline still applies, but exact `H1-H3`
+reproduction requires adapting:
 
-- trials from the same subject are not independent observations
-- averaging within subject reduces noise and avoids pseudo-replication
-- group comparisons should operate on one matrix per subject
+- [meg_alzheimer/atlas.py](meg_alzheimer/atlas.py)
+- [meg_alzheimer/strong_hypotheses.py](meg_alzheimer/strong_hypotheses.py)
 
-Main subject output:
+### 7. Endpoint construction
 
-- `outputs_full_cohort/subjects/<group>/<subject_id>/connectivity_matrices.npz`
+Code:
 
-### Stage 6. Network-level summaries
+- [meg_alzheimer/strong_hypotheses.py](meg_alzheimer/strong_hypotheses.py)
 
-Modules:
-
-- [`meg_alzheimer/atlas.py`](meg_alzheimer/atlas.py)
-- [`meg_alzheimer/pipeline.py`](meg_alzheimer/pipeline.py)
-
-The ROI-by-ROI matrix is then summarized using the Schaefer network labels.
-
-If \(\mathcal{R}_A\) is the set of ROIs belonging to network \(A\), the mean
-intra-network connectivity is:
-
-\[
-M^{intra}_{s,b,m}(A) =
-\frac{2}{|\mathcal{R}_A|(|\mathcal{R}_A|-1)}
-\sum_{i<j,\; i,j \in \mathcal{R}_A}\bar{C}_{s,b,m}(i,j)
-\]
-
-The mean inter-network connectivity between networks \(A\) and \(B\) is:
-
-\[
-M^{inter}_{s,b,m}(A,B) =
-\frac{1}{|\mathcal{R}_A||\mathcal{R}_B|}
-\sum_{i \in \mathcal{R}_A}\sum_{j \in \mathcal{R}_B}\bar{C}_{s,b,m}(i,j)
-\]
-
-Why this step exists:
-
-- hypotheses are formulated at the functional-network level, not at single ROI
-  pairs
-- summarizing by network greatly reduces dimensionality
-- network summaries are easier to interpret biologically than thousands of raw
-  edges
-
-Main outputs:
-
-- `outputs_full_cohort/subject_network_means.csv`
-- `outputs_full_cohort/network_group_stats.csv`
-
-### Stage 7. Hypothesis-specific composites
-
-Module:
-
-- [`meg_alzheimer/strong_hypotheses.py`](meg_alzheimer/strong_hypotheses.py)
-
-The final hypotheses are not tested on every possible edge. They are tested on
-targeted composites derived from the network summaries.
-
-A composite is a subject-level mean over a predefined family of network
-connections that represent one scientific hypothesis.
-
-For example, the alpha temporo-parietal composite used in `H1` is built by
-combining:
-
-- all inter-network rows involving `TempPar`
-- the intra-network `TempPar-TempPar` row
-
-If \(Q_h\) is the set of selected network summaries for hypothesis \(h\), the
-composite is:
-
-\[
-Comp^{(m)}_{s,h} = \frac{1}{|Q_h|}\sum_{q \in Q_h} M^{(m)}_{s,q}
-\]
-
-The `H3` gap is then defined as:
-
-\[
-Gap_{s,h} = Comp^{AEC}_{s,h} - Comp^{AECorth}_{s,h}
-\]
-
-Why this step exists:
-
-- the hypotheses are about distributed network patterns, not isolated edges
-- a composite turns a multi-connection hypothesis into one scalar per subject
-- this reduces noise and keeps the statistical family small and interpretable
-
-### Stage 8. Strong confirmation of `H1-H3`
-
-Module:
-
-- [`meg_alzheimer/strong_hypotheses.py`](meg_alzheimer/strong_hypotheses.py)
-
-The final strong report tests six fixed endpoints:
+The confirmatory endpoint family is fixed:
 
 - `H1_AEC`
 - `H1_AECorth`
@@ -336,175 +244,177 @@ The final strong report tests six fixed endpoints:
 - `H3_gap_full`
 - `H3_gap_inter`
 
-Each endpoint is tested with a Welch t-test:
+`H3` is defined as `AEC - AEC-orth` in alpha-band TempPar-centered composites.
 
-\[
-t = \frac{\bar{x}_A - \bar{x}_B}
-{\sqrt{\frac{s_A^2}{n_A} + \frac{s_B^2}{n_B}}}
-\]
+### 8. Final inference
 
-The report also computes:
+Code:
 
-- one-sided p-values
-- Cohen's `d`
-- bootstrap 95% confidence intervals
-- Holm-Bonferroni family-wise correction
-- max-T permutation family-wise correction
+- [meg_alzheimer/strong_hypotheses.py](meg_alzheimer/strong_hypotheses.py)
 
-Why this step exists:
+The final report uses:
 
-- the hypotheses have a directional prediction
-- Welch's test is appropriate for two independent groups without forcing equal
-  variance
-- Holm and max-T provide strong family-wise control across the fixed set of
-  hypothesis endpoints
+- one-sided Welch tests
+- effect size `d`
+- bootstrap confidence intervals
+- Holm correction
+- max-T permutation control across the six-endpoint family
 
-Main outputs:
+## Paper figure set
 
-- `outputs_full_cohort/strong_hypotheses/endpoint_tests.csv`
-- `outputs_full_cohort/strong_hypotheses/hypothesis_summary.csv`
-- `outputs_full_cohort/strong_hypotheses/strong_summary.md`
-- `outputs_full_cohort/strong_hypotheses/strong_endpoints.png`
+The maintained paper figure set is:
 
-## How to run the pipeline
+- `fig_pipeline_overview`
+- `fig_qc_valid_trials`
+- `fig_network_heatmaps_alpha`
+- `fig_network_heatmaps_beta`
+- `fig_composite_breakdown`
+- `fig_endpoints_distributions`
+- `fig_sensitivity_trials`
 
-### Option A. One command from raw data to final hypothesis report
+These are generated by:
+
+- [scripts/final_figures/build_pipeline_overview.py](scripts/final_figures/build_pipeline_overview.py)
+- [scripts/final_figures/build_qc_valid_trials_figure.py](scripts/final_figures/build_qc_valid_trials_figure.py)
+- [scripts/final_figures/build_network_heatmaps.py](scripts/final_figures/build_network_heatmaps.py)
+- [scripts/final_figures/build_composite_breakdown.py](scripts/final_figures/build_composite_breakdown.py)
+- [scripts/final_figures/build_endpoints_main_figure.py](scripts/final_figures/build_endpoints_main_figure.py)
+- [scripts/final_figures/build_trials_threshold_sensitivity.py](scripts/final_figures/build_trials_threshold_sensitivity.py)
+
+`build_endpoints_main_figure.py` also writes the paper-ready endpoint table.
+
+Figure-to-script map:
+
+| Figure | Script | Main inputs |
+| --- | --- | --- |
+| `fig_pipeline_overview` | `scripts/final_figures/build_pipeline_overview.py` | documented workflow only |
+| `fig_qc_valid_trials` | `scripts/final_figures/build_qc_valid_trials_figure.py` | raw `.mat` files + `subjects.csv` |
+| `fig_network_heatmaps_alpha` | `scripts/final_figures/build_network_heatmaps.py` | saved subject matrices under `outputs_full_cohort/subjects/` |
+| `fig_network_heatmaps_beta` | `scripts/final_figures/build_network_heatmaps.py` | saved subject matrices under `outputs_full_cohort/subjects/` |
+| `fig_composite_breakdown` | `scripts/final_figures/build_composite_breakdown.py` | `subject_network_means.csv` |
+| `fig_endpoints_distributions` | `scripts/final_figures/build_endpoints_main_figure.py` | `subject_network_means.csv` + `endpoint_tests.csv` |
+| `fig_sensitivity_trials` | `scripts/final_figures/build_trials_threshold_sensitivity.py` | cached trial-level endpoint table or rebuilt endpoint DataFrame |
+
+## Supplementary simulation
+
+The repository also includes a standalone supplementary simulation package:
+
+- [simulation_aec_snr_bias](simulation_aec_snr_bias)
+
+This package does not alter the empirical pipeline above. It addresses one
+specific methodological question: whether realistic SNR and trial-count
+differences could bias `AEC-orth` enough to explain the observed `H3` gap
+effect. The simulation uses the same alpha-band filtering choices as the main
+analysis and mirrors the empirical converter/non-converter trial-count
+distributions.
+
+## Installation
+
+The files below pin the environment used to rerun the paper outputs:
+
+- [requirements.txt](requirements.txt)
+- [environment.yml](environment.yml)
+
+Using `venv`:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Using Conda:
+
+```bash
+conda env create -f environment.yml
+conda activate meg-alzheimer-paper
+```
+
+## Tests
+
+The public test suite avoids private data and checks only the stable logic that
+can be validated from synthetic inputs.
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The tests cover:
+
+- dataset loading helpers
+- atlas/network collapsing
+- signal-processing helpers
+- endpoint reconstruction logic
+- trial-threshold sensitivity bookkeeping
+
+## Typical usage
+
+### Validate a new ROI time-series dataset
+
+```bash
+python run_validate_inputs.py --data-root data --require-paper-atlas
+```
+
+### Validate the public example dataset
+
+```bash
+python run_validate_inputs.py \
+  --data-root examples/brainstorm_roi_small/data \
+  --require-paper-atlas
+```
+
+### Full batch: raw data to paper figures
+
+```bash
+python run_paper_figures.py --data-root data --output-root outputs_full_cohort
+```
+
+This command:
+
+1. runs the cohort pipeline
+2. refreshes the strong `H1-H3` outputs
+3. regenerates the seven paper figures
+
+### Rebuild figures only from existing outputs
+
+```bash
+python run_paper_figures.py \
+  --data-root data \
+  --output-root outputs_full_cohort \
+  --skip-group-analysis
+```
+
+### Run the scientific pipeline only
 
 ```bash
 python run_group_analysis.py --data-root data --output-root outputs_full_cohort
 ```
 
-This command runs:
-
-1. raw subject discovery
-2. subject-level connectivity estimation
-3. group-level summaries
-4. strong `H1-H3` confirmation
-
-Use this when you want the complete analysis from scratch.
-
-### Option B. Run the cohort processing first, then the final hypothesis report
-
-Step 1:
-
-```bash
-python run_group_analysis.py \
-  --data-root data \
-  --output-root outputs_full_cohort \
-  --skip-hypotheses
-```
-
-Step 2:
+### Refresh only the strong endpoint report
 
 ```bash
 python run_strong_hypotheses.py --output-root outputs_full_cohort
 ```
 
-Use this when:
+## Reproducibility limits
 
-- subject-level processing has already finished
-- you want to rerun the final inferential layer only
-- you change the strong-testing permutation or bootstrap settings
+- The repository does not document baseline diagnosis, follow-up duration, eyes
+  open versus closed, or MEG vendor because those fields are not available in
+  the accessible files.
+- Age and sex were not available as subject-level values in the raw structs
+  accessible to this codebase.
+- Sensor-space preprocessing and source reconstruction are upstream steps. This
+  repository starts from already exported source-space ROI time series.
+- Exact reproduction of the paper-level endpoint family requires the same
+  Schaefer-style network naming convention encoded in
+  [meg_alzheimer/atlas.py](meg_alzheimer/atlas.py). Other ROI atlases are still
+  compatible with the low-level signal-processing code, but not with the paper
+  endpoint definitions without explicit adaptation.
 
-### Useful runtime flags
+## Optional notebook
 
-Full cohort processing can take hours. These options are often useful:
-
-```bash
-python run_group_analysis.py \
-  --data-root data \
-  --output-root outputs_full_cohort \
-  --quicklook-only \
-  --no-subject-graphs
-```
-
-Key flags:
-
-- `--quicklook-only`: save only one quick matrix plot per subject
-- `--no-subject-graphs`: skip thresholded network graph images
-- `--skip-hypotheses`: stop after cohort-level outputs
-- `--hypothesis-n-perm`: permutation count for the final strong report
-- `--hypothesis-n-boot`: bootstrap count for the final strong report
-
-To inspect all available options:
-
-```bash
-python run_group_analysis.py --help
-python run_strong_hypotheses.py --help
-```
-
-## Output structure
-
-The most important outputs are:
-
-- `outputs_full_cohort/subjects.csv`
-- `outputs_full_cohort/run_config.json`
-- `outputs_full_cohort/subjects/<group>/<subject_id>/connectivity_matrices.npz`
-- `outputs_full_cohort/subject_global_means.csv`
-- `outputs_full_cohort/subject_network_means.csv`
-- `outputs_full_cohort/global_group_stats.csv`
-- `outputs_full_cohort/network_group_stats.csv`
-- `outputs_full_cohort/edgewise_group_summary.csv`
-- `outputs_full_cohort/strong_hypotheses/endpoint_tests.csv`
-- `outputs_full_cohort/strong_hypotheses/hypothesis_summary.csv`
-- `outputs_full_cohort/strong_hypotheses/strong_summary.md`
-
-These outputs are generated locally and are ignored by Git in the public
-repository configuration.
-
-## Notebook usage
-
-After the batch run:
-
-```bash
-jupyter lab
-```
-
-Then open `analysis_alzheimer.ipynb` to inspect saved outputs rather than
-recomputing the cohort interactively.
-
-## Runtime expectations
-
-- full subject-level processing takes hours for the complete cohort
-- the final strong `H1-H3` report is much faster than recomputing all subjects
-
-## Interpretation notes
-
-- `group_stats/*_mask.png` are edgewise ROI-by-ROI significance masks
-- a black mask means no individual ROI pair survived correction in that family
-- this does not rule out effects at the network or composite level
-
-## Minimal reproducible path
-
-If you want the shortest reproducible route from raw data to final inference,
-use exactly these two commands:
-
-```bash
-python run_group_analysis.py --data-root data --output-root outputs_full_cohort --skip-hypotheses
-python run_strong_hypotheses.py --output-root outputs_full_cohort
-```
-
-That path is sufficient to reproduce:
-
-- subject-level matrices
-- network summaries
-- the strong confirmation report for `H1-H3`
-
-## Manuscript artifact scripts
-
-Once the cohort outputs exist locally, the scripts under `scripts/` can be used
-to regenerate manuscript-facing figures and tables. The repository keeps those
-generation scripts, but not the generated `.png`, `.pdf`, `.csv`, or `.tex`
-artifacts.
-
-- `scripts/final_tables/build_cohort_main_table.py`
-- `scripts/final_tables/build_cohort_qc_table.py`
-- `scripts/final_figures/build_qc_valid_trials_figure.py`
-- `scripts/final_figures/build_network_heatmaps.py`
-- `scripts/final_figures/build_endpoints_main_figure.py`
-- `scripts/final_figures/build_forest_endpoints.py`
-- `scripts/final_figures/build_composite_breakdown.py`
-- `scripts/final_figures/build_robustness_figure.py`
-
-The post hoc exact-network checks live alongside those scripts but remain
-separate from the confirmatory `H1-H3` workflow.
+The notebook at [notebooks/analysis_alzheimer.ipynb](notebooks/analysis_alzheimer.ipynb)
+is retained as a local inspection notebook. It is not part of the canonical
+raw-data-to-paper workflow and should not be treated as the authoritative path
+for reproducing the manuscript outputs.

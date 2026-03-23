@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-"""Build final network-level heatmaps for alpha and beta connectivity.
+"""Build the paper heatmaps for alpha and beta network connectivity.
 
-The script generates two parallel representations from the same subject-level
-ROI matrices:
-
-1. ``schaefer17``: the exact 17-network subdivision present in the ROI labels
-2. ``collapsed9``: the coarser network family used by the main pipeline
-
-Both are computed directly from the saved subject connectivity matrices so the
-figures are fully reproducible from the current repository state.
+The paper uses the collapsed 9-network summary produced by the main pipeline,
+so that version is the default output. The exact Schaefer-17 subdivision is
+still available as an explicit opt-in for supplementary work.
 """
 
 import argparse
@@ -82,6 +77,11 @@ def parse_args() -> argparse.Namespace:
         "--captions-path",
         default="captions_figures.md",
         help="Markdown file where suggested figure captions will be written.",
+    )
+    parser.add_argument(
+        "--include-schaefer17",
+        action="store_true",
+        help="Also export the exact Schaefer-17 version used for supplementary inspection.",
     )
     return parser.parse_args()
 
@@ -209,16 +209,16 @@ def _plot_heatmap(
     if temp_par_index is not None:
         lo = temp_par_index - 0.5
         hi = temp_par_index + 0.5
-        ax.axhline(lo, color="#111111", linewidth=1.2)
-        ax.axhline(hi, color="#111111", linewidth=1.2)
-        ax.axvline(lo, color="#111111", linewidth=1.2)
-        ax.axvline(hi, color="#111111", linewidth=1.2)
+        ax.axhline(lo, color="#111111", linewidth=1.1)
+        ax.axhline(hi, color="#111111", linewidth=1.1)
+        ax.axvline(lo, color="#111111", linewidth=1.1)
+        ax.axvline(hi, color="#111111", linewidth=1.1)
     return im
 
 
 def _figure_size(n_networks: int) -> tuple[float, float]:
     if n_networks <= 9:
-        return (12.2, 7.6)
+        return (12.8, 7.9)
     return (14.8, 8.8)
 
 
@@ -231,7 +231,8 @@ def _build_one_figure(
 ) -> tuple[Path, Path, Path]:
     temp_par_index = network_order.index("TempPar") if "TempPar" in network_order else None
     fig, axes = plt.subplots(2, 3, figsize=_figure_size(len(network_order)), constrained_layout=True)
-    fig.suptitle(f"{band.title()} network connectivity heatmaps ({resolution_label})", fontsize=14)
+    title_suffix = "9-network summary" if resolution_label == "collapsed9" else "exact Schaefer-17"
+    fig.suptitle(f"{band.title()} network connectivity heatmaps ({title_suffix})", fontsize=14)
 
     for row_idx, metric in enumerate(METRICS):
         conv = group_matrices[(metric, GROUP_A)]
@@ -248,7 +249,7 @@ def _build_one_figure(
             conv,
             network_order,
             f"{metric} {GROUP_A}",
-            cmap="cividis",
+            cmap="YlGnBu",
             vmin=mean_vmin,
             vmax=mean_vmax,
             temp_par_index=temp_par_index,
@@ -258,7 +259,7 @@ def _build_one_figure(
             nonconv,
             network_order,
             f"{metric} {GROUP_B}",
-            cmap="cividis",
+            cmap="YlGnBu",
             vmin=mean_vmin,
             vmax=mean_vmax,
             temp_par_index=temp_par_index,
@@ -268,18 +269,21 @@ def _build_one_figure(
             diff,
             network_order,
             f"{metric} difference ({GROUP_A} - {GROUP_B})",
-            cmap="RdBu_r",
+            cmap="BrBG_r",
             vmin=-diff_lim,
             vmax=diff_lim,
             temp_par_index=temp_par_index,
         )
 
         cbar_mean = fig.colorbar(im_mean_1, ax=axes[row_idx, :2], fraction=0.025, pad=0.02)
-        cbar_mean.set_label(f"{metric} mean connectivity")
+        cbar_mean.set_label(f"{metric} connectivity (unitless)")
         cbar_diff = fig.colorbar(im_diff, ax=axes[row_idx, 2], fraction=0.046, pad=0.03)
-        cbar_diff.set_label("Difference")
+        cbar_diff.set_label("Group difference")
 
-    suffix = "" if resolution_label == "schaefer17" else f"_{resolution_label}"
+    if resolution_label == "collapsed9":
+        suffix = ""
+    else:
+        suffix = f"_{resolution_label}"
     png_path = output_dir / f"fig_network_heatmaps_{band}{suffix}.png"
     pdf_path = output_dir / f"fig_network_heatmaps_{band}{suffix}.pdf"
     csv_path = output_dir / f"fig_network_heatmaps_{band}_matrices_{resolution_label}.csv"
@@ -356,39 +360,46 @@ def _write_aggregation_note(output_dir: Path, roi_labels: list[str], raw_labels:
     return path
 
 
-def _upsert_captions(path: Path) -> None:
+def _upsert_captions(path: Path, *, include_schaefer17: bool) -> None:
     sections = [
         (
-            "## Figure: Alpha network heatmaps (Schaefer-17)",
-            "Suggested caption: Group-mean alpha-band network connectivity matrices for Converters and "
-            "Non-converters, together with the group difference (Converter minus Non-converter), shown at the "
-            "exact Schaefer 17-network level. Panels are shown separately for AEC and AEC-orth. Network cells "
-            "were obtained by averaging ROI-level connectivity within and between network blocks, and TempPar is "
-            "highlighted on both axes for anatomical localization.",
-        ),
-        (
-            "## Figure: Beta network heatmaps (Schaefer-17)",
-            "Suggested caption: Group-mean beta-band network connectivity matrices for Converters and "
-            "Non-converters, together with the group difference (Converter minus Non-converter), shown at the "
-            "exact Schaefer 17-network level. Panels are shown separately for AEC and AEC-orth. Network cells "
-            "were obtained by averaging ROI-level connectivity within and between network blocks, and TempPar is "
-            "highlighted on both axes for anatomical localization.",
-        ),
-        (
-            "## Figure: Alpha network heatmaps (collapsed-9)",
+            "## Figure: Alpha network heatmaps",
             "Suggested caption: Group-mean alpha-band network connectivity matrices using the collapsed 9-network "
             "family employed by the main pipeline. Panels show Converters, Non-converters, and the group "
-            "difference for AEC and AEC-orth. These heatmaps provide the direct descriptive counterpart of the "
-            "network summaries used downstream in the hypothesis-driven analysis.",
+            "difference for AEC and AEC-orth. Network cells were obtained by averaging ROI-level connectivity "
+            "within and between network blocks, and TempPar is highlighted to localize the temporo-parietal-centered "
+            "patterns carried forward into the composite analysis.",
         ),
         (
-            "## Figure: Beta network heatmaps (collapsed-9)",
+            "## Figure: Beta network heatmaps",
             "Suggested caption: Group-mean beta-band network connectivity matrices using the collapsed 9-network "
             "family employed by the main pipeline. Panels show Converters, Non-converters, and the group "
-            "difference for AEC and AEC-orth. These heatmaps provide the direct descriptive counterpart of the "
-            "network summaries used downstream in the hypothesis-driven analysis.",
+            "difference for AEC and AEC-orth. Network cells were obtained by averaging ROI-level connectivity "
+            "within and between network blocks, and TempPar is highlighted to localize the beta-band network "
+            "patterns summarized later in the hypothesis-driven endpoints.",
         ),
     ]
+    if include_schaefer17:
+        sections.extend(
+            [
+                (
+                    "## Figure: Alpha network heatmaps (Schaefer-17)",
+                    "Suggested caption: Group-mean alpha-band network connectivity matrices for Converters and "
+                    "Non-converters, together with the group difference (Converter minus Non-converter), shown at the "
+                    "exact Schaefer 17-network level. Panels are shown separately for AEC and AEC-orth. Network cells "
+                    "were obtained by averaging ROI-level connectivity within and between network blocks, and TempPar is "
+                    "highlighted on both axes for anatomical localization.",
+                ),
+                (
+                    "## Figure: Beta network heatmaps (Schaefer-17)",
+                    "Suggested caption: Group-mean beta-band network connectivity matrices for Converters and "
+                    "Non-converters, together with the group difference (Converter minus Non-converter), shown at the "
+                    "exact Schaefer 17-network level. Panels are shown separately for AEC and AEC-orth. Network cells "
+                    "were obtained by averaging ROI-level connectivity within and between network blocks, and TempPar is "
+                    "highlighted on both axes for anatomical localization.",
+                ),
+            ]
+        )
 
     existing = path.read_text() if path.exists() else ""
     blocks: list[str] = []
@@ -433,10 +444,11 @@ def main() -> None:
 
     all_exports: list[dict[str, Any]] = []
     outputs: list[Path] = []
-    for resolution_label, roi_networks, network_order in [
-        ("schaefer17", raw_labels, S17_ORDER),
-        ("collapsed9", collapsed_labels, COLLAPSED9_ORDER),
-    ]:
+    resolutions = [("collapsed9", collapsed_labels, COLLAPSED9_ORDER)]
+    if args.include_schaefer17:
+        resolutions.insert(0, ("schaefer17", raw_labels, S17_ORDER))
+
+    for resolution_label, roi_networks, network_order in resolutions:
         for band in BANDS:
             group_matrices: dict[tuple[str, str], np.ndarray] = {}
             for metric in METRICS:
@@ -468,7 +480,7 @@ def main() -> None:
 
     note_path = _write_aggregation_note(output_dir, roi_labels=roi_labels, raw_labels=raw_labels, collapsed_labels=collapsed_labels)
     outputs.append(note_path)
-    _upsert_captions(captions_path)
+    _upsert_captions(captions_path, include_schaefer17=args.include_schaefer17)
 
     print(f"Subjects loaded: {len(subject_payloads)}")
     print(f"TempPar present in Schaefer-17: {'TempPar' in raw_labels}")

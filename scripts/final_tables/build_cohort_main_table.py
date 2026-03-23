@@ -28,15 +28,12 @@ if str(REPO_ROOT) not in sys.path:
 import numpy as np
 import pandas as pd
 
-from scripts.final_tables.build_cohort_qc_table import (
-    GROUP_A,
-    GROUP_B,
-    _compare_continuous,
-    _format_continuous,
-    _subject_qc_frame,
-    _verify_subject_manifest,
-    discover_subjects,
-)
+from meg_alzheimer.dataset import discover_subjects
+from meg_alzheimer.qc import build_subject_qc_frame, compare_continuous, format_continuous, verify_subject_manifest
+
+
+GROUP_A = "Converter"
+GROUP_B = "Non-converter"
 
 
 def parse_args() -> argparse.Namespace:
@@ -113,7 +110,7 @@ def _build_main_table(subject_df: pd.DataFrame) -> pd.DataFrame:
     group_a = subject_df.loc[subject_df["group"] == GROUP_A].copy()
     group_b = subject_df.loc[subject_df["group"] == GROUP_B].copy()
 
-    comparison, statistic, p_value = _compare_continuous(group_a["n_valid_trials"], group_b["n_valid_trials"])
+    comparison, statistic, p_value = compare_continuous(group_a["n_valid_trials"], group_b["n_valid_trials"])
 
     rows = [
         {
@@ -126,8 +123,8 @@ def _build_main_table(subject_df: pd.DataFrame) -> pd.DataFrame:
         },
         {
             "Variable": "Valid trials per subject",
-            "Converter": _format_continuous(group_a["n_valid_trials"]),
-            "Non-converter": _format_continuous(group_b["n_valid_trials"]),
+            "Converter": format_continuous(group_a["n_valid_trials"]),
+            "Non-converter": format_continuous(group_b["n_valid_trials"]),
             "Comparison": comparison,
             "Statistic": statistic,
             "p-value": p_value,
@@ -145,8 +142,8 @@ def main() -> None:
     if not records:
         raise SystemExit(f"No subjects found under {args.data_root}.")
 
-    subject_df = _subject_qc_frame(records)
-    _verify_subject_manifest(subject_df, Path(args.subjects_csv))
+    subject_df = build_subject_qc_frame(records)
+    verify_subject_manifest(subject_df, Path(args.subjects_csv))
 
     groups = set(subject_df["group"])
     if groups != {GROUP_A, GROUP_B}:

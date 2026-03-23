@@ -1,0 +1,14 @@
+name: meg-alzheimer-paper
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy=2.3.3
+  - pandas=2.3.3
+  - scipy=1.16.2
+  - matplotlib=3.10.7
+  - networkx=3.5
+  - joblib=1.5.3
+  - tqdm=4.67.3
+  - jupyterlab>=4.2,<5
+  - ipykernel>=6.29,<7

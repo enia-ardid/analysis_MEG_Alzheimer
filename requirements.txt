@@ -1,11 +1,15 @@
 # Tested with Python 3.12.
-# Core scientific stack pinned to the environment used to run the full cohort analysis.
+# Core scientific stack pinned to the environment used to rerun the paper and
+# supplementary simulation end to end.
 numpy==2.3.3
 pandas==2.3.3
 scipy==1.16.2
 matplotlib==3.10.7
 networkx==3.5
+joblib==1.5.3
+tqdm==4.67.3
 
-# Notebook stack so the reporting notebook can be opened and executed from a clean environment.
+# Notebook stack so the local inspection notebook can still be opened from a
+# clean environment.
 jupyterlab>=4.2,<5
 ipykernel>=6.29,<7

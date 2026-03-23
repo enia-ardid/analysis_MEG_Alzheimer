@@ -5,6 +5,12 @@ pipeline are re-exported here. Internal helpers stay inside their modules so
 the package namespace remains small and predictable.
 """
 
+import os
+from pathlib import Path
+
+_PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+os.environ.setdefault("MPLCONFIGDIR", str(_PACKAGE_ROOT / ".mplconfig"))
+
 from .atlas import (
     DEFAULT_NETWORK_MAP,
     build_network_masks,
@@ -17,6 +23,7 @@ from .atlas import (
 from .connectivity import aec_matrix, aec_orth_matrix, plv_matrix
 from .dataset import LoadedSubject, SubjectRecord, discover_subjects, load_brainstorm_subject
 from .pipeline import PipelineConfig, run_group_pipeline, subject_conn_from_trials
+from .qc import build_subject_qc_frame, verify_subject_manifest
 from .strong_hypotheses import generate_strong_hypothesis_report
 from .signals import band_defs
 
@@ -29,6 +36,7 @@ __all__ = [
     "aec_orth_matrix",
     "band_defs",
     "build_network_masks",
+    "build_subject_qc_frame",
     "discover_subjects",
     "extract_roi_labels_from_atlas",
     "generate_strong_hypothesis_report",
@@ -40,4 +48,5 @@ __all__ = [
     "plv_matrix",
     "run_group_pipeline",
     "subject_conn_from_trials",
+    "verify_subject_manifest",
 ]
