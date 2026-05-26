@@ -1,24 +1,23 @@
 # ROI Time-Series Input Contract
 
-This repository starts from source-space ROI time series that were exported
-upstream. It does not perform sensor-space preprocessing or source
-reconstruction.
+This code starts from source-space ROI time series exported upstream. It does
+not perform sensor-space preprocessing or source reconstruction.
 
-Other labs can reuse the low-level pipeline if they can provide ROI data in the
-same structural format. Exact reproduction of the paper results also requires
+Another lab can usually reuse the low-level pipeline if it can provide ROI data
+with the same structure. Exact reproduction of the paper outputs also requires
 the same atlas conventions.
 
-The practical point of this document is simple: if a new dataset can satisfy
-the structural checks below, the filtering and connectivity code can usually be
-reused as-is. If it cannot, the right fix is to adapt the loader or atlas
-mapping explicitly rather than hoping the pipeline will fail gracefully later.
+The practical rule is simple: if a new dataset passes the checks below, the
+filtering and connectivity code can usually be reused as-is. If it does not,
+it is better to adapt the loader or the atlas mapping explicitly than to let the
+pipeline fail later in a less obvious way.
 
 ## Minimal on-disk format
 
 The validator and main pipeline expect MATLAB `.mat` files under `data/`. Each
 file may contain one or more subject structs. The current project uses three
 split files per group, but the loader discovers subjects recursively and does
-not require that exact split.
+not depend on that exact split.
 
 Example:
 
@@ -47,7 +46,7 @@ and `N` time samples per trial, the expected shape is:
 
 - `(T * R, N)`
 
-The loader also accepts the transposed case if it can detect safely that the
+The loader also accepts the transposed case when it can safely detect that the
 time axis is on the wrong dimension.
 
 ### `Time`
@@ -57,8 +56,8 @@ match the time dimension of `Value`.
 
 ### `Atlas`
 
-`Atlas` must contain a `Scouts` field with readable ROI labels. The loader uses
-these labels to:
+`Atlas` must contain a `Scouts` field with readable ROI labels. These labels
+are used to:
 
 - recover the ROI count
 - check consistency across subjects
@@ -73,16 +72,15 @@ The public pipeline assumes that all subjects share:
 - the same trial time axis length
 - the same atlas definition
 
-If any of these differ across subjects, the validator should fail and the
-dataset should be harmonized before running the paper workflow. In practice,
-mixed atlas definitions or inconsistent ROI ordering are the cases most likely
-to poison downstream summaries without throwing an obvious error, which is why
-the validator checks them early.
+If any of these differ across subjects, validation should fail and the dataset
+should be harmonized before running the paper workflow. Mixed atlas definitions
+and inconsistent ROI ordering are the two cases most likely to spoil downstream
+summaries without an obvious crash.
 
 ## Group discovery
 
-Subjects are assigned to groups by tokens found either in the top-level MATLAB
-variable name or in parent directory names.
+Subjects are assigned to groups from tokens found either in the top-level
+MATLAB variable name or in parent directory names.
 
 Supported tokens are:
 
@@ -95,7 +93,7 @@ identifiable through those tokens or by renaming files or structs accordingly.
 ## Exact paper reproduction requirements
 
 Running the code on another lab's ROI exports is possible, but the exact paper
-figures and endpoints are only portable if the following are also true:
+figures and endpoints only carry over if the following are also true:
 
 - the sampling rate is `1000 Hz`
 - each trial contains `8000` samples
@@ -118,7 +116,7 @@ The exact paper endpoints `H1-H3` depend on the collapsed networks:
 
 If another lab uses a different atlas, the low-level signal-processing code can
 still be reused, but these two files need to be adapted before the paper-level
-network summaries make sense:
+summaries make sense:
 
 - `meg_alzheimer/atlas.py`
 - `meg_alzheimer/strong_hypotheses.py`
@@ -154,7 +152,7 @@ Paper-specific:
 - `H1-H3` endpoint family
 - manuscript figure builders
 
-That separation is deliberate. The signal-processing core is reusable, while
-the manuscript claims stay tied to the exact network definitions used here. A
-different atlas can still support the same style of analysis, but at that point
-it becomes a related pipeline rather than a literal rerun of this paper.
+The signal-processing core is reusable. The manuscript claims are tied to the
+network definitions used here. A different atlas can still support the same
+style of analysis, but at that point it becomes a related pipeline rather than
+a literal rerun of this paper.

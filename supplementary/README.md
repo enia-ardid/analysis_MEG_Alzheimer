@@ -1,13 +1,14 @@
 # Supplementary Assets
 
-This directory contains supplementary assets intended for direct inclusion in the thesis manuscript.
+This directory contains the Fisher-z supplementary material in the form used by
+the manuscript.
 
 Contents:
-- `source_tables/`: canonical CSV sources for the Fisher-z supplementary tables.
-- `tables/`: LaTeX tables ready for `\input{...}`.
-- `figures/`: optional rendered PDF/PNG table figures.
+- `source_tables/`: source CSVs used to build the supplementary tables
+- `tables/`: LaTeX tables ready for `\input{...}`
+- `figures/`: optional PDF/PNG renders of those same tables
 
-Regenerate the Fisher-z supplementary assets from the repository root with:
+Regenerate everything from the repository root with:
 
 ```bash
 python scripts/supplementary/make_fisher_z_tables.py

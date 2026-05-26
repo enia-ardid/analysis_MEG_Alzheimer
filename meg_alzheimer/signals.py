@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-"""Signal-processing helpers used by the connectivity pipeline.
+"""Signal-processing helpers for band-limited connectivity analysis.
 
-The repository starts from source-space ROI time series, but the connectivity
-metrics are defined band by band. This module keeps the spectral definitions,
-FIR filtering, and Hilbert-based analytic-signal steps in one place so the same
-choices are reused everywhere.
+This module holds the shared spectral definitions, FIR filtering, and
+Hilbert-based analytic-signal steps used across the pipeline.
 """
 
 from typing import Dict, List, Sequence, Tuple
@@ -18,12 +16,7 @@ Band = Tuple[float, float]
 
 
 def band_defs() -> Dict[str, Band]:
-    """Return the canonical frequency bands used across the repository.
-
-    These ranges are intentionally centralized in one function so that the
-    cohort pipeline, the subject-level outputs, and the final hypothesis tests
-    all operate on the same spectral definitions.
-    """
+    """Return the frequency bands used throughout the pipeline."""
     return {
         "delta": (1.0, 4.0),
         "theta": (4.0, 8.0),

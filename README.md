@@ -1,47 +1,48 @@
 # MEG Connectivity Pipeline for ROI Time-Series Analysis
 
-This is the maintained code path behind the manuscript. It starts from private
-Brainstorm source-space ROI exports and rebuilds the analysis from subject
-trials to the final `H1-H3` endpoints and paper figures.
+This repository contains the code used for the manuscript from ROI time-series
+exports onward. It starts from source-space Brainstorm ROI signals and rebuilds
+the downstream analysis: trial reconstruction, band-limited connectivity,
+within-subject averaging, network summaries, endpoint construction, and the
+figure set used in the paper.
 
-The repository is intentionally narrow. It does not try to be a general MEG
-toolbox, and it does not include the upstream sensor-space preprocessing or
-source reconstruction steps. What it does include is the full analysis that can
-be reproduced from ROI time series onward: data loading, band-limited
-connectivity, within-subject averaging, network summaries, endpoint
-construction, and the figure set used in the paper.
+It is not a general MEG toolbox. Sensor-space preprocessing, MRI handling, and
+source reconstruction happen upstream and are not reproduced here.
 
-The public repository covers the part that can actually be rerun here:
+What is reproducible from this repository:
 
-- load ROI time-series `.mat` exports
-- rebuild `trial x ROI x time` tensors
-- compute trial-wise connectivity
-- average within subject
-- collapse ROI matrices to network summaries
-- build the predefined endpoint family `H1-H3`
-- export the paper figures
+- loading ROI time-series `.mat` exports
+- rebuilding `trial x ROI x time` tensors
+- computing trial-wise connectivity
+- averaging within subject
+- collapsing ROI matrices to network summaries
+- building the predefined `H1-H3` endpoint family
+- generating the manuscript figure set
+- running the methodological robustness checks that accompany the main analysis
 
 Files written under `figures/`, `tables/`, and `outputs_full_cohort/` are local
-artifacts. The code is versioned; the private data and derived outputs are not.
+artifacts. The code is versioned; the private data and large derived outputs are
+not.
 
-The public supplementary Fisher-z package is versioned under `supplementary/`.
-It contains the canonical source CSVs, the LaTeX tables, and optional rendered
-PDF/PNG table figures used for manuscript assembly.
+The Fisher-z supplementary package is versioned under `supplementary/`. It
+contains the source CSVs, LaTeX tables, and optional rendered table figures
+used for manuscript assembly.
 
-## Canonical entry points
+## Entry points
 
 - [run_group_analysis.py](run_group_analysis.py)
-  Raw Brainstorm `.mat` files to cohort outputs and strong `H1-H3` testing.
+  Run the main cohort analysis from Brainstorm `.mat` files to group-level
+  outputs.
 - [run_strong_hypotheses.py](run_strong_hypotheses.py)
-  Refresh only the final `H1-H3` report from an existing output folder.
+  Rebuild the final `H1-H3` report from existing outputs.
 - [run_paper_figures.py](run_paper_figures.py)
-  Regenerate the paper figure set from raw data or from existing outputs.
+  Regenerate the paper figures from raw data or from cached outputs.
 - [run_validate_inputs.py](run_validate_inputs.py)
   Check whether a local ROI time-series dataset matches the structural contract
-  expected by the public pipeline.
+  expected by the pipeline.
 - [run_methodological_validation.py](run_methodological_validation.py)
-  Rebuild the methodological sensitivity checks that accompany the main
-  confirmatory analysis.
+  Rebuild the methodological sensitivity checks used in the supplementary
+  material.
 
 ## Repository layout
 
@@ -121,11 +122,8 @@ Each subject struct is expected to contain:
 
 For a subject with `T` clean trials, `Value` has shape `(T * 102, 8000)`.
 
-This repository starts from source-space ROI time series that were already
-exported upstream. Sensor-space preprocessing and source reconstruction happen
-before this codebase.
-
-For a detailed contract aimed at other labs, see:
+This code starts from source-space ROI time series that were exported upstream.
+For the full structural contract, see:
 
 - [docs/roi_input_contract.md](docs/roi_input_contract.md)
 
@@ -142,7 +140,7 @@ Validate a new dataset before running the full workflow:
 python run_validate_inputs.py --data-root data --require-paper-atlas
 ```
 
-For a public smoke example that matches the same struct contract, see:
+For a public smoke example that follows the same struct contract, see:
 
 - [examples/README.md](examples/README.md)
 
@@ -155,10 +153,8 @@ Code:
 - [meg_alzheimer/dataset.py](meg_alzheimer/dataset.py)
 
 Brainstorm stores trials as one long stack of ROI blocks. The loader restores
-the original `trial x ROI x time` layout and keeps track of ROI labels and time
-axis metadata while doing so. That reshape is one of the main things that can
-silently go wrong in these exports, so the repository keeps it explicit and
-easy to audit.
+the original `trial x ROI x time` layout and keeps the ROI labels and time axis
+explicit.
 
 ### 2. Central window selection
 
@@ -166,9 +162,8 @@ Code:
 
 - [meg_alzheimer/dataset.py](meg_alzheimer/dataset.py)
 
-Each trial contains 8 seconds of data at 1000 Hz. The pipeline keeps the
-central 4-second segment (`2000:6000`). This mirrors the discovery analysis and
-avoids leaning on the filtered edges of the trial.
+Each trial contains 8 seconds of data at 1000 Hz. The analysis keeps the
+central 4-second segment (`2000:6000`) to stay away from filter edges.
 
 ### 3. Band-limited analytic signals
 
@@ -177,11 +172,9 @@ Code:
 - [meg_alzheimer/signals.py](meg_alzheimer/signals.py)
 
 Each cropped trial is filtered into delta, theta, alpha, beta, and gamma. The
-implementation uses an FIR filter built with `scipy.signal.firwin`
-(`numtaps = 801`, Hamming window) and applies it with `filtfilt` so the phase
-response stays symmetric. The analytic signal is then obtained with a Hilbert
-transform, which provides the phase and amplitude-envelope quantities used by
-the connectivity metrics.
+filtering uses `scipy.signal.firwin` (`numtaps = 801`, Hamming window) and is
+applied with `filtfilt` to preserve a symmetric phase response. The analytic
+signal is then obtained with a Hilbert transform.
 
 ### 4. Trial-wise connectivity
 
@@ -190,10 +183,9 @@ Code:
 - [meg_alzheimer/connectivity.py](meg_alzheimer/connectivity.py)
 
 For every trial, band, and ROI pair, the pipeline computes `PLV`, `AEC`, and
-`AEC-orth`. `AEC` and `AEC-orth` are unitless correlation-based measures.
-Negative values are kept, and the main analysis does not apply a Fisher
-transform before averaging. That choice was deliberate and is one of the
-decisions revisited in the robustness block.
+`AEC-orth`. Negative values are kept. The main analysis averages on the raw
+correlation scale; Fisher-z sensitivity is handled separately in the robustness
+layer.
 
 ### 5. Within-subject averaging
 
@@ -201,9 +193,8 @@ Code:
 
 - [meg_alzheimer/pipeline.py](meg_alzheimer/pipeline.py)
 
-Trial-level matrices are averaged within subject. The repository is built
-around the subject as the statistical unit, so trials are never treated as
-independent observations in the group tests.
+Trial-level matrices are averaged within subject. Subjects, not trials, are the
+statistical unit in the group analysis.
 
 ### 6. ROI to network summary
 
@@ -229,9 +220,9 @@ collapsed 9-network family:
 - `VisCent`
 - `VisPeri`
 
-This collapsing rule is paper-specific. If another lab uses a different atlas,
-the core connectivity pipeline still applies, but exact `H1-H3` reproduction
-requires adapting:
+This step is paper-specific. If another lab uses a different atlas, the
+connectivity code still applies, but exact `H1-H3` reproduction requires
+adapting:
 
 - [meg_alzheimer/atlas.py](meg_alzheimer/atlas.py)
 - [meg_alzheimer/strong_hypotheses.py](meg_alzheimer/strong_hypotheses.py)
@@ -244,9 +235,7 @@ Code:
 
 The confirmatory endpoint family is fixed: `H1_AEC`, `H1_AECorth`, `H2_AEC`,
 `H2_AECorth`, `H3_gap_full`, and `H3_gap_inter`. `H3` is defined as
-`AEC - AEC-orth` in alpha-band TempPar-centered composites. The endpoint logic
-is kept in one place so that the paper figures, tables, and strong-testing
-report all point back to the same definitions.
+`AEC - AEC-orth` in alpha-band TempPar-centered composites.
 
 ### 8. Final inference
 
@@ -256,13 +245,11 @@ Code:
 
 The final report uses one-sided Welch tests, effect size `d`, bootstrap
 intervals, Holm correction, and max-T permutation control across the six
-endpoints. The idea is to keep the descriptive pipeline and the confirmatory
-layer separate: network summaries are exported first, and the strong-testing
-step reads those outputs rather than rebuilding the subject matrices.
+endpoints.
 
 ## Paper figure set
 
-The maintained paper figure set is:
+The main figure set is:
 
 - `fig_pipeline_overview`
 - `fig_qc_valid_trials`
@@ -297,17 +284,16 @@ Figure-to-script map:
 
 ## Supplementary simulation
 
-The repository also includes a standalone supplementary simulation package:
+The repository also includes a separate simulation package:
 
 - [simulation_aec_snr_bias](simulation_aec_snr_bias)
 
-This package does not change the empirical pipeline. It addresses one specific
-question: whether realistic SNR and trial-count differences could bias
-`AEC-orth` enough to explain the observed `H3` gap effect.
+It addresses one specific question: whether realistic SNR and trial-count
+differences could bias `AEC-orth` enough to account for the observed `H3` gap.
 
 ## Installation
 
-The files below pin the environment used to rerun the paper outputs:
+The files below define the environment used to rerun the paper outputs:
 
 - [requirements.txt](requirements.txt)
 - [environment.yml](environment.yml)
@@ -330,14 +316,14 @@ conda activate meg-alzheimer-paper
 
 ## Citation
 
-The repository includes machine-readable citation metadata:
+Citation metadata is available in:
 
 - [CITATION.cff](CITATION.cff)
 
 ## Tests
 
-The public test suite avoids private data and checks only the stable logic that
-can be exercised from synthetic inputs.
+The public test suite avoids private data and checks only logic that can be run
+from synthetic inputs or from the bundled example dataset.
 
 ```bash
 python -m unittest discover -s tests -v
@@ -419,6 +405,6 @@ python run_strong_hypotheses.py --output-root outputs_full_cohort
   compatible with the low-level signal-processing code, but not with the paper
   endpoint definitions without explicit adaptation.
 
-Those limits are real. The repository is meant to make the part of the workflow
-that is available fully reproducible, not to imply that every upstream or
-clinical detail is present in the public codebase.
+These are real limits of the public release. The goal is to make the part of
+the workflow that is available fully reproducible, without pretending that all
+upstream or clinical metadata are present here.

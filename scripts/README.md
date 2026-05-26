@@ -1,9 +1,10 @@
-# Manuscript scripts
+# Manuscript Scripts
 
-This directory contains the downstream scripts that turn pipeline outputs into
-paper tables and figures.
+This directory contains the small scripts that turn pipeline outputs into paper
+figures and tables. They sit downstream of the analysis code and should not
+change the scientific definitions.
 
-## Figure scripts kept in the maintained path
+## Figure scripts
 
 - [final_figures/build_pipeline_overview.py](final_figures/build_pipeline_overview.py)
 - [final_figures/build_qc_valid_trials_figure.py](final_figures/build_qc_valid_trials_figure.py)
@@ -14,25 +15,21 @@ paper tables and figures.
 
 These are the scripts called by [run_paper_figures.py](../run_paper_figures.py).
 
-## Table scripts kept in the maintained path
+## Table scripts
 
 - [final_tables/build_cohort_main_table.py](final_tables/build_cohort_main_table.py)
 - [final_tables/build_cohort_qc_table.py](final_tables/build_cohort_qc_table.py)
 
-
-## Supplementary scripts kept in the maintained path
+## Supplementary scripts
 
 - [supplementary/make_fisher_z_tables.py](supplementary/make_fisher_z_tables.py)
 
-This script turns the canonical CSVs in `supplementary/source_tables/` into
-LaTeX-ready supplementary tables and optional PDF/PNG table figures.
+This script reads the Fisher-z source CSVs in `supplementary/source_tables/`
+and writes the LaTeX tables and optional PDF/PNG table renders used in the
+supplementary material.
 
-## Design rule
+## Rule of thumb
 
-The scripts in this directory should not redefine the scientific pipeline. They
-sit downstream of:
-
-- [run_group_analysis.py](../run_group_analysis.py)
-- [run_strong_hypotheses.py](../run_strong_hypotheses.py)
-
-Their job is to format and export paper-facing outputs from those results.
+If a script in this directory starts redefining the analysis itself, it is in
+the wrong place. These scripts are for formatting, exporting, and assembling
+paper-facing outputs from results that already exist.
