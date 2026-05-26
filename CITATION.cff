@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it using the metadata below."
+title: "MEG Connectivity Pipeline for ROI Time-Series Connectivity Analysis"
+type: software
+authors:
+  - family-names: "Ardid"
+    given-names: "Enia"
+repository-code: "https://github.com/enia-ardid/analysis_MEG_Alzheimer"
+url: "https://github.com/enia-ardid/analysis_MEG_Alzheimer"
+license: "MIT"

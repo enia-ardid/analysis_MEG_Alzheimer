@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-"""Atlas and network-level summarization utilities.
+"""Atlas parsing and ROI-to-network summaries.
 
-The connectivity metrics are first computed at ROI level, yielding 102 x 102
- matrices for each subject, band, and metric. The scientific questions in this
-project, however, are formulated at the level of large-scale networks such as
-TempPar, DorsAttn, or Control. This module provides the bridge between those
-two levels:
-
-- read ROI labels from the Brainstorm atlas object
-- map Schaefer label prefixes onto a smaller set of functional networks
-- compute within-network and between-network averages from ROI matrices
+Connectivity is computed at the ROI level, but the paper hypotheses are framed
+at the level of larger functional networks. This module handles that bridge:
+read ROI labels from the Brainstorm atlas object, map Schaefer-style prefixes
+onto the collapsed network families used in the paper, and summarize ROI
+matrices accordingly.
 """
 
 from itertools import combinations

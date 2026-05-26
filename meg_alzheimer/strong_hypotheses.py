@@ -3,19 +3,9 @@ from __future__ import annotations
 """Final strong-testing layer for hypotheses H1-H3.
 
 The cohort pipeline exports subject-level network summaries for every band and
-metric. This module takes those summaries and constructs the exact endpoint
-family used for the final confirmation step:
-
-- H1: alpha TempPar full composite in AEC and AEC-orth
-- H2: beta TempPar inter-network composite in AEC and AEC-orth
-- H3: alpha TempPar gap in the full and inter-only definitions
-
-The statistical goal here is stronger than the descriptive and exploratory
-outputs produced upstream. We therefore evaluate all six endpoints as a closed
-family and apply:
-
-- Holm-Bonferroni adjustment on the endpoint p-values
-- max-T permutation correction across the whole endpoint family
+metric. This module turns those summaries into the six predefined endpoints
+used in the confirmatory analysis and applies the family-wise inference used in
+the paper.
 """
 
 from dataclasses import dataclass
@@ -125,7 +115,9 @@ def _metric_composite_values(network_df: pd.DataFrame, analysis_id: str, band: s
     """Build one subject-level composite from the network summary table.
 
     The output has one row per subject and therefore matches the statistical
-    unit used in the final group comparison.
+    unit used in the final group comparison. The composite itself is a simple
+    mean across the selected network blocks; the endpoint definitions are fixed
+    upstream in `STRONG_ENDPOINTS`.
     """
     frame = network_df.loc[(network_df["band"] == band) & (network_df["metric"] == metric)].copy()
     if analysis_id == "alpha_tempPar_full_down":
@@ -177,7 +169,12 @@ def _extract_endpoint_frame(
     spec: StrongEndpointSpec,
     network_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Resolve one endpoint specification into a concrete subject-value table."""
+    """Resolve one endpoint specification into a concrete subject-value table.
+
+    Keeping this resolution step explicit makes it easier to audit exactly which
+    rows went into each endpoint, especially when the same composite is reused
+    across several hypotheses.
+    """
     if spec.source == "metric":
         band = "alpha" if spec.analysis_id.startswith("alpha") else "beta"
         frame = _metric_composite_values(network_df, analysis_id=spec.analysis_id, band=band, metric=spec.metric)

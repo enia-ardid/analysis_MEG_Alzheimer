@@ -2,13 +2,11 @@ from __future__ import annotations
 
 """Data-loading helpers for Brainstorm ``.mat`` exports.
 
-The repository works from multi-subject ``.mat`` files where each top-level
-struct corresponds to one participant. The functions below solve three concrete
-problems:
-
-- discover which subject structs exist inside each file
-- infer the study group from the subject identifier
-- reshape the Brainstorm ``Value`` matrix into ``trials x rois x time``
+The project starts from multi-subject MATLAB files exported from Brainstorm.
+Those files are convenient to store, but not especially convenient to analyse:
+trials are flattened, group labels are implicit in names, and a small change in
+how `loadmat` interprets the struct can break downstream code. This module
+keeps that mess in one place.
 """
 
 from dataclasses import dataclass
@@ -33,7 +31,11 @@ DEFAULT_GROUP_ALIASES = {
 
 @dataclass(frozen=True)
 class SubjectRecord:
-    """Minimal metadata needed to load one subject from disk."""
+    """Minimal metadata needed to load one subject from disk.
+
+    The point of this class is to make discovery cheap. We only read the full
+    MATLAB struct once we know which subjects we actually want to process.
+    """
     subject_id: str
     group: str
     path: Path
@@ -42,7 +44,12 @@ class SubjectRecord:
 
 @dataclass
 class LoadedSubject:
-    """Fully loaded subject data in a pipeline-friendly shape."""
+    """Fully loaded subject data in a pipeline-friendly shape.
+
+    `X_trials` is the field most of the pipeline actually uses. The other
+    attributes are kept so later stages can still inspect the original time axis
+    and atlas metadata without reloading the file.
+    """
     record: SubjectRecord
     data_key: str
     raw_struct: object
@@ -82,8 +89,9 @@ def discover_subjects(data_root: str | Path, group_aliases: Mapping[str, str] | 
     """Discover all subjects under ``data_root``.
 
     The dataset is split across several large MATLAB files. Each file contains
-    many subject structs, so the discovery stage enumerates every struct and
-    turns it into a ``SubjectRecord``.
+    many subject structs, so the discovery step just walks the files, identifies
+    the structs that look like subjects, and records enough metadata to load
+    them later.
     """
     root = Path(data_root)
     if not root.exists():
@@ -139,8 +147,9 @@ def load_brainstorm_subject(record: SubjectRecord, subject_struct: object | None
 
     The Brainstorm ``Value`` field stores ROI rows stacked trial-by-trial. If a
     subject has ``T`` trials and ``R`` ROIs, the matrix has ``T * R`` rows and
-    one time axis shared by all trials. This function checks that assumption and
-    performs the reshape explicitly.
+    one time axis shared by all trials. This function checks that assumption,
+    handles the common transposed case, and performs the reshape explicitly
+    instead of relying on a more opaque helper.
     """
     if subject_struct is None:
         data = load_subject_structs(record.path, [record.mat_variable])

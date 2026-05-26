@@ -2,19 +2,10 @@ from __future__ import annotations
 
 """Robustness analyses for the predefined H1-H3 endpoint family.
 
-This module adds secondary checks around the existing six endpoint definitions
-without changing the primary scientific pipeline. The key design choice is to
-reuse the same subject-level endpoints as the main analysis and only vary the
-questions asked around them:
-
-- what happens when every subject contributes the same number of trials?
-- does the group effect survive leave-one-subject-out perturbations?
-- do H3 conclusions change under reasonable within-subject aggregation choices?
-- does a simple covariate adjustment for trial count materially alter the group effect?
-
-The only expensive step is a one-time trial-level precomputation of the six
-endpoint quantities. After that, all robustness analyses reuse the cached
-trial-level table.
+These checks sit downstream of the main pipeline. The endpoint definitions do
+not change; what changes is the way they are perturbed or summarised to answer
+questions a reviewer is likely to ask, such as trial-count matching,
+leave-one-subject-out stability, or alternative within-subject aggregation.
 """
 
 from dataclasses import dataclass
@@ -585,4 +576,3 @@ def endpoint_trialcount_relationship(subject_endpoint_df: pd.DataFrame, trial_co
                 }
             )
     return pd.DataFrame(rows)
-

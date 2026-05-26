@@ -2,14 +2,10 @@ from __future__ import annotations
 
 """Shared cohort and quality-control utilities.
 
-The paper uses a small set of subject-level descriptors more than once:
-
-- the number of valid trials per subject
-- a conservative table of raw-file QC fields
-- simple group comparisons for those descriptors
-
-Keeping that logic in one module avoids cross-imports between figure scripts
-and table scripts and makes the manuscript outputs easier to audit.
+Several paper outputs need the same subject-level bookkeeping, especially valid
+trial counts and conservative summaries of fields present in the raw structs.
+Keeping that logic here avoids reimplementing the same QC extraction in figure
+scripts and table builders.
 """
 
 from pathlib import Path

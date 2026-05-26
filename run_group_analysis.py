@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Command-line entry point for the full raw-data-to-hypothesis workflow."""
+"""Run the full empirical workflow from raw ROI exports to the H1-H3 report."""
 
 import argparse
 from pathlib import Path
@@ -12,12 +12,10 @@ from meg_alzheimer.strong_hypotheses import generate_strong_hypothesis_report
 def parse_args() -> argparse.Namespace:
     """Define the CLI for the cohort pipeline.
 
-    The defaults are chosen so that running the command with no extra flags is
-    enough for the current project layout:
-
-    - raw files under ``data/``
-    - outputs written to ``outputs/`` unless overridden
-    - strong H1-H3 testing executed automatically at the end
+    The defaults are set up for the current repository layout, so in the common
+    case the command can be run without any extra flags. If another lab wants
+    to reuse the pipeline, `--data-root` and `--output-root` are the options
+    that usually matter first.
     """
     parser = argparse.ArgumentParser(
         description="Run multi-subject MEG connectivity analysis for Converter vs Non-converter subjects."

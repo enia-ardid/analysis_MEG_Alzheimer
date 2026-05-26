@@ -1,9 +1,4 @@
-"""Public package surface for the MEG Alzheimer connectivity workflow.
-
-Only the stable building blocks used by the streamlined raw-data-to-hypothesis
-pipeline are re-exported here. Internal helpers stay inside their modules so
-the package namespace remains small and predictable.
-"""
+"""Public package surface for the MEG Alzheimer connectivity workflow."""
 
 import os
 from pathlib import Path

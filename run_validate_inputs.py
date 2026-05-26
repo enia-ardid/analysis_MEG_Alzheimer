@@ -2,16 +2,9 @@ from __future__ import annotations
 
 """Validate whether a local ROI time-series dataset matches the paper contract.
 
-This command does not run the scientific analysis. Its purpose is narrower:
-
-- discover Brainstorm-style subject structs under ``data/``
-- check that each subject can be reshaped into ``trials x ROI x time``
-- confirm that ROI labels are consistent across subjects
-- optionally verify that the atlas labels are compatible with the paper
-
-The validator is useful both before a full rerun of this repository and when a
-different lab wants to reuse the code with source-space ROI exports in the same
-format.
+This command does not run the scientific analysis. It is meant to answer a
+simpler question up front: can this dataset be loaded safely by the pipeline,
+and if not, where does it diverge from the assumptions used in the paper?
 """
 
 import argparse
@@ -66,7 +59,7 @@ def _paper_compatible_prefixes() -> set[str]:
 
 
 def main() -> None:
-    """Validate a dataset and print an audit-style summary."""
+    """Validate a dataset and print a compact audit-style summary."""
     args = parse_args()
     data_root = Path(args.data_root)
     records = discover_subjects(data_root)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Command-line entry point for the final H1-H3 confirmation step."""
+"""Rebuild the final H1-H3 report from existing cohort outputs."""
 
 import argparse
 from pathlib import Path

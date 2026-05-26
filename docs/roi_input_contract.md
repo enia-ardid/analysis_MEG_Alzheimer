@@ -1,18 +1,24 @@
 # ROI Time-Series Input Contract
 
-This repository starts from already exported source-space ROI time series. It
-does not perform sensor-space preprocessing or source reconstruction.
+This repository starts from source-space ROI time series that were exported
+upstream. It does not perform sensor-space preprocessing or source
+reconstruction.
 
-The code is reusable by other labs if they can provide ROI data that match the
-same structural contract. Exact reproduction of the paper results requires the
-same atlas conventions as the original dataset.
+Other labs can reuse the low-level pipeline if they can provide ROI data in the
+same structural format. Exact reproduction of the paper results also requires
+the same atlas conventions.
+
+The practical point of this document is simple: if a new dataset can satisfy
+the structural checks below, the filtering and connectivity code can usually be
+reused as-is. If it cannot, the right fix is to adapt the loader or atlas
+mapping explicitly rather than hoping the pipeline will fail gracefully later.
 
 ## Minimal on-disk format
 
-The validator and the main pipeline expect MATLAB `.mat` files under `data/`.
-Each file may contain one or many subject structs. The current project uses
-three split files per group, but the code discovers subjects recursively and
-does not require that exact split.
+The validator and main pipeline expect MATLAB `.mat` files under `data/`. Each
+file may contain one or more subject structs. The current project uses three
+split files per group, but the loader discovers subjects recursively and does
+not require that exact split.
 
 Example:
 
@@ -41,8 +47,8 @@ and `N` time samples per trial, the expected shape is:
 
 - `(T * R, N)`
 
-The loader also accepts the transposed case if it can detect that the time axis
-is on the wrong dimension and transpose safely.
+The loader also accepts the transposed case if it can detect safely that the
+time axis is on the wrong dimension.
 
 ### `Time`
 
@@ -68,7 +74,10 @@ The public pipeline assumes that all subjects share:
 - the same atlas definition
 
 If any of these differ across subjects, the validator should fail and the
-dataset should be harmonized before running the paper workflow.
+dataset should be harmonized before running the paper workflow. In practice,
+mixed atlas definitions or inconsistent ROI ordering are the cases most likely
+to poison downstream summaries without throwing an obvious error, which is why
+the validator checks them early.
 
 ## Group discovery
 
@@ -81,14 +90,12 @@ Supported tokens are:
 - `NC`, `Non-converter`, `Non-converters`
 
 For exact reproduction of this paper, converters and non-converters must be
-identifiable through those tokens or by renaming the files or structs to match
-them.
+identifiable through those tokens or by renaming files or structs accordingly.
 
 ## Exact paper reproduction requirements
 
-Running the code on another lab's ROI time-series exports is possible, but the
-exact manuscript figures and endpoints are only portable if the following are
-also true:
+Running the code on another lab's ROI exports is possible, but the exact paper
+figures and endpoints are only portable if the following are also true:
 
 - the sampling rate is `1000 Hz`
 - each trial contains `8000` samples
@@ -110,8 +117,8 @@ The exact paper endpoints `H1-H3` depend on the collapsed networks:
 - `VisPeri`
 
 If another lab uses a different atlas, the low-level signal-processing code can
-still be reused, but two files must be adapted before the paper-level network
-summaries make sense:
+still be reused, but these two files need to be adapted before the paper-level
+network summaries make sense:
 
 - `meg_alzheimer/atlas.py`
 - `meg_alzheimer/strong_hypotheses.py`
@@ -147,6 +154,7 @@ Paper-specific:
 - `H1-H3` endpoint family
 - manuscript figure builders
 
-That separation is deliberate. It allows other labs to reuse the reliable
-signal-processing core while keeping the manuscript claims tied to the exact
-network definitions that motivated this study.
+That separation is deliberate. The signal-processing core is reusable, while
+the manuscript claims stay tied to the exact network definitions used here. A
+different atlas can still support the same style of analysis, but at that point
+it becomes a related pipeline rather than a literal rerun of this paper.

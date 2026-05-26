@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-"""Run the exact figure-generation path used by the paper.
+"""Run the figure-generation path used by the paper.
 
-The goal of this entry point is not to redefine the analysis. It simply
-serializes the already established workflow into one command:
-
-1. build the cohort outputs from raw Brainstorm `.mat` files
-2. refresh the strong H1-H3 report
-3. regenerate the seven figures used in the paper
-
-The figure list is fixed on purpose so the manuscript-facing outputs remain
-stable and easy to audit.
+This entry point is intentionally boring. It does not redefine the analysis or
+try to be clever about dependencies; it just runs the maintained sequence in
+the same order every time so the manuscript-facing outputs stay easy to audit.
 """
 
 import argparse

@@ -1,10 +1,8 @@
-"""Plotting utilities for subject-level and summary connectivity figures.
+"""Plotting helpers for connectivity figures.
 
-The project keeps visualisation helpers in one small module so that analysis
-code does not need to manage figure styling, thresholding, or file writing
-details inline. The functions here are intentionally simple wrappers around
-Matplotlib and NetworkX. They are designed for reproducible reporting rather
-than interactive dashboards.
+The plotting code in this repository is deliberately lightweight. These helpers
+cover the few recurring patterns used in the subject quicklooks and matrix
+exports, without turning figure generation into a second analysis layer.
 """
 
 from __future__ import annotations

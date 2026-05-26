@@ -32,3 +32,6 @@ ENV/
 
 # Local matplotlib cache if created inside the repo
 .mplconfig/
+# Local exploratory and staging areas
+/analysis_alzheimer.ipynb
+/paper_preparation/

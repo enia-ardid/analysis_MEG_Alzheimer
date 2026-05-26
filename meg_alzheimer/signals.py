@@ -1,19 +1,11 @@
 from __future__ import annotations
 
-"""Signal-processing helpers used by the MEG connectivity pipeline.
+"""Signal-processing helpers used by the connectivity pipeline.
 
-The raw Brainstorm exports already live in source space and have been broadly
-filtered upstream, but the connectivity metrics in this repository are defined
-band-by-band. The functions below therefore implement the small set of signal
-operations needed to move from trial-wise time series to band-limited analytic
-signals:
-
-- define the canonical frequency bands used throughout the project
-- design a linear-phase FIR band-pass filter
-- apply zero-phase filtering with ``filtfilt``
-- compute the analytic signal with a Hilbert transform
-- expose phase and envelope, which are the primitives required by PLV, AEC,
-  and AEC-orth
+The repository starts from source-space ROI time series, but the connectivity
+metrics are defined band by band. This module keeps the spectral definitions,
+FIR filtering, and Hilbert-based analytic-signal steps in one place so the same
+choices are reused everywhere.
 """
 
 from typing import Dict, List, Sequence, Tuple

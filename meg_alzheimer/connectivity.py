@@ -2,14 +2,10 @@ from __future__ import annotations
 
 """Connectivity metrics used in the project.
 
-The pipeline computes three matrices from band-limited ROI time series:
-
-- PLV: phase-locking value
-- AEC: amplitude-envelope correlation
-- AEC-orth: orthogonalized amplitude-envelope correlation
-
-All public functions in this module accept either a single ROI time series or
-an array shaped ``n_rois x n_time`` and return a symmetric ROI-by-ROI matrix.
+The pipeline works with source-space ROI time series and derives three measures
+from them: PLV, AEC, and AEC-orth. The functions here operate either on one
+pair of signals or on `n_rois x n_time` arrays and return the symmetric
+ROI-by-ROI matrices used downstream.
 """
 
 from typing import Optional

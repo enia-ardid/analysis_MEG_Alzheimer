@@ -1,17 +1,9 @@
 """Statistical helpers used across the MEG connectivity workflow.
 
-The project uses two broad classes of statistical routines:
-
-1. Vector-level corrections such as Benjamini-Hochberg FDR, which are applied
-   to families of p-values generated from the same inferential question.
-2. Matrix-level operations for edgewise connectivity analyses, where each
-   subject contributes one ROI-by-ROI matrix and group differences are computed
-   independently at every edge.
-
-The functions in this module stay intentionally small and explicit. They are
-used as building blocks by higher-level modules that define the scientific
-question, the family of tests to correct, and how the resulting statistics are
-reported.
+Most of the statistics in this repository are simple on purpose: Welch tests,
+effect sizes, FDR bookkeeping, and a few edgewise permutation routines. The
+goal of this module is not to hide the analysis behind abstractions, but to
+keep the repeated pieces in one place.
 """
 
 from __future__ import annotations

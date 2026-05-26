@@ -2,11 +2,10 @@ from __future__ import annotations
 
 """Main cohort pipeline from raw MATLAB files to group statistics.
 
-This module is the center of the repository. It takes the multi-subject
-Brainstorm exports, reconstructs trial-wise source signals for every subject,
-computes band-limited connectivity matrices, summarizes those matrices at the
-subject and group level, and writes the analysis products used by the final
-hypothesis tests.
+This module is where the repository stops being a collection of helpers and
+turns into one actual analysis path. It loads subjects, crops the analysis
+window, computes subject-level connectivity matrices, exports network summaries,
+and writes the cohort outputs that feed the final hypothesis tests.
 """
 
 import json
@@ -39,12 +38,9 @@ METRICS = ("PLV", "AEC", "AEC-orth")
 class PipelineConfig:
     """Configuration for the cohort-level pipeline.
 
-    The defaults reflect the current dataset:
-
-    - source-space MEG data
-    - 1000 Hz sampling rate
-    - trials padded to 8000 samples
-    - central 4-second analysis window stored between samples 2000 and 6000
+    The defaults match the current dataset and paper. They are not meant to be
+    universal; they are simply the settings under which the discovery analysis
+    was run.
     """
     data_root: Path = Path("data")
     output_root: Path = Path("outputs")
@@ -87,8 +83,9 @@ def subject_conn_from_trials(
     Notes
     -----
     The aggregation logic deliberately averages trial-level matrices within
-    subject instead of treating trials as independent samples. This keeps the
-    subject as the statistical unit for all downstream group tests.
+    subject instead of treating trials as independent samples. That design keeps
+    the subject as the statistical unit for all downstream group tests and
+    avoids inflating the sample size with clean trials.
     """
     X_mid = np.asarray(X_mid, dtype=float)
     n_trials, n_rois, _ = X_mid.shape
@@ -96,8 +93,9 @@ def subject_conn_from_trials(
         band_name: {"PLV": None, "AEC": None, "AEC-orth": None} for band_name in bands
     }
     for band_name, band_range in bands.items():
-        # Filter all trials for the same band in one call. This is cheaper than
-        # re-designing and re-running the filter inside the trial loop.
+        # Filter all trials for the same band in one call. It is cheaper than
+        # re-designing and re-running the filter inside the trial loop, and it
+        # makes the band-specific work easier to reason about.
         X_band_all = bandpass_filt(X_mid, fs, band_range, edge_trim=edge_trim)
         analytic_all = hilbert(X_band_all, axis=-1)
         phase_all = np.angle(analytic_all)
@@ -108,7 +106,8 @@ def subject_conn_from_trials(
         aec_orth_acc = np.zeros((n_rois, n_rois), dtype=float)
         for trial_idx in range(n_trials):
             # Each trial contributes one ROI-by-ROI matrix. The final subject
-            # matrix is the arithmetic mean across the available clean trials.
+            # matrix is just the arithmetic mean across the available clean
+            # trials.
             plv_acc += plv_from_phase(phase_all[trial_idx], fs=fs, window_s=window_s, step_s=step_s)
             aec_acc += aec_from_envelope(env_all[trial_idx], fs=fs, window_s=window_s, step_s=step_s)
             aec_orth_acc += aec_orth_from_analytic(analytic_all[trial_idx])
@@ -178,10 +177,10 @@ def _network_group_stats_for_groups(
 ) -> pd.DataFrame:
     """Run group comparisons on the network summary table.
 
-    The input table already contains one row per subject, band, metric, and
-    network block. This function groups those rows by block and performs a Welch
-    t-test between the requested study groups, followed by BH-FDR within each
-    ``band x metric`` family.
+    The input already has one row per subject, band, metric, and network block.
+    This function just groups those rows by block, runs the requested
+    Converter-versus-Non-converter comparison, and adds BH-FDR within each
+    `band x metric` family.
     """
     rows: List[dict] = []
     grouped = network_df.groupby(["band", "metric", "connection_type", "network_a", "network_b"], sort=True)

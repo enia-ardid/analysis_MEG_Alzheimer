@@ -1,0 +1,7 @@
+Component,Family,Band,Definition,Mean subject r,Min subject r,Max subject r,Mean |Δ| raw-r vs Fisher-z,Median |Δ|,Max |Δ|
+Alpha full AEC,AEC,alpha,TempPar full composite component,0.076826,0.025271,0.158521,3.54e-4,2.35e-4,1.93e-3
+Alpha inter AEC,AEC,alpha,TempPar inter-network component,0.075369,0.023645,0.158086,3.11e-4,2.08e-4,1.62e-3
+Beta inter AEC,AEC,beta,TempPar inter-network component,0.047174,0.017312,0.086959,3.79e-5,2.02e-5,2.62e-4
+Alpha full AEC-orth,AEC-orth,alpha,TempPar full composite component,0.026835,-0.004290,0.088195,9.54e-5,5.26e-5,5.42e-4
+Alpha inter AEC-orth,AEC-orth,alpha,TempPar inter-network component,0.025640,-0.006621,0.086579,8.43e-5,4.63e-5,5.38e-4
+Beta inter AEC-orth,AEC-orth,beta,TempPar inter-network component,0.016329,0.000718,0.052010,9.92e-6,4.25e-6,9.46e-5
