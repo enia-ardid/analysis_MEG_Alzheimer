@@ -1,150 +1,180 @@
-# MEG Connectivity Pipeline for ROI Time-Series Analysis
+# MEG connectivity for Alzheimer's research
 
-This repository contains the code used for the manuscript from ROI time-series
-exports onward. It starts from source-space Brainstorm ROI signals and rebuilds
-the downstream analysis: trial reconstruction, band-limited connectivity,
-within-subject averaging, network summaries, endpoint construction, and the
-figure set used in the paper.
+Python analysis of source-space magnetoencephalography (MEG) connectivity in
+converters and non-converters, from Brainstorm ROI exports to network summaries
+and predefined `H1–H3` tests.
 
-It is not a general MEG toolbox. Sensor-space preprocessing, MRI handling, and
-source reconstruction happen upstream and are not reproduced here.
+[![Public tests](https://github.com/enia-ardid/analysis_MEG_Alzheimer/actions/workflows/ci.yml/badge.svg)](https://github.com/enia-ardid/analysis_MEG_Alzheimer/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-306998?style=flat)](environment.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-007F75?style=flat)](LICENSE)
 
-What is reproducible from this repository:
+![Single-subject alpha-band PLV matrix and graph of the strongest approximately 5% of connections.](docs/assets/social-preview.png)
 
-- loading ROI time-series `.mat` exports
-- rebuilding `trial x ROI x time` tensors
-- computing trial-wise connectivity
-- averaging within subject
-- collapsing ROI matrices to network summaries
-- building the predefined `H1-H3` endpoint family
-- generating the manuscript figure set
-- running the methodological robustness checks that accompany the main analysis
+*Alpha-band PLV for one subject: 35 trials and 102 ROIs. The graph retains
+approximately the strongest 5% of connections. [Figure details](docs/visual_assets.md#original-notebook-figures).*
 
-Files written under `figures/`, `tables/`, and `outputs_full_cohort/` are local
-artifacts. The code is versioned; the private data and large derived outputs are
-not.
+[Quickstart](#quickstart) · [Workflow](#workflow) · [Visual results](#visual-results) · [Scientific pipeline](#scientific-pipeline) · [Reproducibility](#reproducibility-limits) · [Citation](#citation)
 
-The Fisher-z supplementary package is versioned under `supplementary/`. It
-contains the source CSVs, LaTeX tables, and optional rendered table figures
-used for manuscript assembly.
+## Overview
+
+The pipeline reconstructs trials, computes band-limited connectivity and
+averages matrices within subject before comparing groups. Methodological
+sensitivity checks and an SNR simulation accompany the main analysis.
+
+The workflow starts **after source reconstruction**, from exported ROI signals.
+The public example data are synthetic; the original cohort data are private.
+See [reproducibility limits](#reproducibility-limits) for the scope of the release.
+
+| Analysis | Implementation |
+| --- | --- |
+| **5 frequency bands** | Delta, theta, alpha, beta and gamma; FIR filtering and Hilbert analytic signals |
+| **3 connectivity measures** | Phase-locking value (PLV), amplitude-envelope correlation (AEC) and orthogonalized AEC (AEC-orth) |
+| **100 parcels → 9 networks** | Schaefer-derived mapping; 2 background labels excluded from the 102-label export |
+| **6 predefined endpoints** | TempPar-centered `H1–H3` composites; Welch tests, bootstrap intervals, Holm and max-T correction |
+| **Public reproducibility** | Synthetic `.mat` examples, input validation, pinned scientific dependencies and a GitHub Actions test workflow |
+
+## Quickstart
+
+Run from a terminal with Python 3.12. The public example requires no private data.
+
+```bash
+git clone https://github.com/enia-ardid/analysis_MEG_Alzheimer.git
+cd analysis_MEG_Alzheimer
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+On Windows, activate with `.venv\Scripts\activate` instead.
+
+<details>
+<summary>Use Conda instead</summary>
+
+From the repository root:
+
+```bash
+conda env create -f environment.yml
+conda activate meg-alzheimer-paper
+```
+
+</details>
+
+Validate the bundled input and run the public connectivity smoke test:
+
+```bash
+python run_validate_inputs.py \
+  --data-root examples/brainstorm_roi_small/data \
+  --require-paper-atlas
+
+python -m unittest tests.test_public_smoke -v
+```
+
+The example contains 4 synthetic subjects, each with 2 trials, 102 ROI labels
+and 8,000 samples per trial. The smoke test processes one subject's central
+4-second window and checks the three `102 × 102` alpha-band connectivity
+matrices. See the [example guide](examples/README.md).
+
+## Workflow
+
+![Six-stage analysis: Brainstorm ROI exports, band-limited analytic signals, trial-wise connectivity, within-subject averaging, nine-network summaries, and six H1–H3 endpoints with family-wise inference.](docs/assets/pipeline-overview.svg)
+
+Each trial contributes a connectivity matrix. Matrices are averaged **within
+subject**, so subjects remain the statistical unit in group comparisons.
+
+| Hypothesis | Predefined comparison |
+| --- | --- |
+| **H1 · Alpha coupling** | TempPar full composite, evaluated with AEC and AEC-orth |
+| **H2 · Beta coupling** | TempPar inter-network composite, evaluated with AEC and AEC-orth |
+| **H3 · Alpha gap** | `AEC − AEC-orth`, evaluated for the full and inter-network TempPar composites |
+
+TempPar denotes the temporal-parietal network. The full composite includes
+TempPar's within-network block and its between-network connections; the
+inter-network composite uses only the latter. Definitions are fixed in
+[strong_hypotheses.py](meg_alzheimer/strong_hypotheses.py).
+
+## Visual results
+
+The figures above show alpha-band PLV averaged over 35 trials from one subject,
+using 102 ROIs and the central 4-second analysis window.
+
+- [Alpha PLV matrix](docs/assets/original-alpha-plv-matrix.png): pairwise
+  phase-locking values for that subject.
+- [Alpha PLV graph](docs/assets/original-alpha-plv-graph.png): the same matrix,
+  retaining approximately the strongest 5% of connections.
+
+These exploratory figures come from the original notebook and predate the
+current pipeline. They have not been recomputed because the private MATLAB
+input is not included. The [figure documentation](docs/visual_assets.md#original-notebook-figures)
+records their provenance.
+
+The [supplementary Fisher-z comparison](supplementary/README.md) shows aggregation
+sensitivity using the source CSVs provided with the repository.
+
+## Code guide
+
+| Area | Code to explore |
+| --- | --- |
+| MATLAB input handling and validation | [Dataset loader](meg_alzheimer/dataset.py) · [Input contract](docs/roi_input_contract.md) |
+| Signal processing and connectivity | [FIR and Hilbert helpers](meg_alzheimer/signals.py) · [PLV, AEC and AEC-orth](meg_alzheimer/connectivity.py) |
+| Cohort analysis | [Pipeline](meg_alzheimer/pipeline.py): subject matrices, network CSVs and configuration metadata |
+| Statistical inference | [Endpoint definitions and family-wise tests](meg_alzheimer/strong_hypotheses.py) |
+| Sensitivity analysis | [Robustness helpers](meg_alzheimer/robustness.py) · [Methodological validation](meg_alzheimer/methodological_validation.py) |
+| Monte Carlo experiments | [SNR and trial-count simulation](simulation_aec_snr_bias/README.md) |
+| Tests and figure generation | [Public tests](tests) · [CI workflow](.github/workflows/ci.yml) · [Figure and table builders](scripts/README.md) |
 
 ## Entry points
 
-- [run_group_analysis.py](run_group_analysis.py)
-  Run the main cohort analysis from Brainstorm `.mat` files to group-level
-  outputs.
-- [run_strong_hypotheses.py](run_strong_hypotheses.py)
-  Rebuild the final `H1-H3` report from existing outputs.
-- [run_paper_figures.py](run_paper_figures.py)
-  Regenerate the paper figures from raw data or from cached outputs.
-- [run_validate_inputs.py](run_validate_inputs.py)
-  Check whether a local ROI time-series dataset matches the structural contract
-  expected by the pipeline.
-- [run_methodological_validation.py](run_methodological_validation.py)
-  Rebuild the methodological sensitivity checks used in the supplementary
-  material.
+| Command | Purpose |
+| --- | --- |
+| [run_validate_inputs.py](run_validate_inputs.py) | Check a local ROI dataset against the input contract |
+| [run_group_analysis.py](run_group_analysis.py) | Run cohort analysis from Brainstorm `.mat` files to group outputs |
+| [run_strong_hypotheses.py](run_strong_hypotheses.py) | Rebuild the final `H1–H3` report from existing outputs |
+| [run_paper_figures.py](run_paper_figures.py) | Generate the manuscript figure set from raw data or cached outputs |
+| [run_methodological_validation.py](run_methodological_validation.py) | Rebuild the supplementary methodological checks |
 
-## Repository layout
+## Typical usage
 
-```text
-.
-├── README.md
-├── CITATION.cff
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-├── docs/
-│   └── roi_input_contract.md
-├── environment.yml
-├── examples/
-│   ├── README.md
-│   ├── build_example_dataset.py
-│   └── brainstorm_roi_small/
-│       └── data/
-├── requirements.txt
-├── tests/
-├── run_validate_inputs.py
-├── run_group_analysis.py
-├── run_strong_hypotheses.py
-├── run_paper_figures.py
-├── run_methodological_validation.py
-├── simulation_aec_snr_bias/
-├── supplementary/
-│   ├── README.md
-│   ├── source_tables/
-│   ├── tables/
-│   └── figures/
-├── meg_alzheimer/
-│   ├── __init__.py
-│   ├── atlas.py
-│   ├── connectivity.py
-│   ├── dataset.py
-│   ├── methodological_validation.py
-│   ├── pipeline.py
-│   ├── qc.py
-│   ├── robustness.py
-│   ├── signals.py
-│   ├── stats.py
-│   ├── strong_hypotheses.py
-│   └── viz.py
-└── scripts/
-    ├── README.md
-    ├── figures/
-    ├── final_figures/
-    ├── final_tables/
-    └── supplementary/
-```
-
-## Input contract and portability
-
-The pipeline expects Brainstorm-style MATLAB exports under `data/`:
-
-```text
-data/
-├── C_p1.mat
-├── C_p2.mat
-├── C_p3.mat
-├── NC_p1.mat
-├── NC_p2.mat
-└── NC_p3.mat
-```
-
-Current group discovery:
-
-- `C_* -> Converter`
-- `NC_* -> Non-converter`
-
-Each subject struct is expected to contain:
-
-- `Value`: ROI time series stacked trial by trial
-- `Time`: sample axis
-- `Atlas`: ROI labels
-
-For a subject with `T` clean trials, `Value` has shape `(T * 102, 8000)`.
-
-This code starts from source-space ROI time series that were exported upstream.
-For the full structural contract, see:
-
-- [docs/roi_input_contract.md](docs/roi_input_contract.md)
-
-In practice:
-
-- another lab can reuse the low-level pipeline if it can export ROI time series
-  in the same Brainstorm-like struct format
-- exact reproduction of the paper endpoints also requires the same
-  Schaefer-style ROI naming used by `meg_alzheimer/atlas.py`
-
-Validate a new dataset before running the full workflow:
+### Validate a new ROI time-series dataset
 
 ```bash
 python run_validate_inputs.py --data-root data --require-paper-atlas
 ```
 
-For a public smoke example that follows the same struct contract, see:
+### Full batch: raw data to paper figures
 
-- [examples/README.md](examples/README.md)
+```bash
+python run_paper_figures.py --data-root data --output-root outputs_full_cohort
+```
+
+This command runs the cohort pipeline, refreshes the strong `H1-H3` outputs,
+and regenerates the seven paper figures.
+
+### Rebuild figures only from existing outputs
+
+```bash
+python run_paper_figures.py \
+  --data-root data \
+  --output-root outputs_full_cohort \
+  --skip-group-analysis
+```
+
+### Run the scientific pipeline only
+
+```bash
+python run_group_analysis.py --data-root data --output-root outputs_full_cohort
+```
+
+### Refresh only the strong endpoint report
+
+```bash
+python run_strong_hypotheses.py --output-root outputs_full_cohort
+```
 
 ## Scientific pipeline
+
+<details>
+<summary>Read the eight analysis steps and their source modules</summary>
 
 ### 1. Subject loading and trial reconstruction
 
@@ -247,7 +277,61 @@ The final report uses one-sided Welch tests, effect size `d`, bootstrap
 intervals, Holm correction, and max-T permutation control across the six
 endpoints.
 
+</details>
+
+## Input contract and portability
+
+The pipeline expects Brainstorm-style MATLAB exports under `data/`:
+
+```text
+data/
+├── C_p1.mat
+├── C_p2.mat
+├── C_p3.mat
+├── NC_p1.mat
+├── NC_p2.mat
+└── NC_p3.mat
+```
+
+Current group discovery:
+
+- `C_* -> Converter`
+- `NC_* -> Non-converter`
+
+Each subject struct is expected to contain:
+
+- `Value`: ROI time series stacked trial by trial
+- `Time`: sample axis
+- `Atlas`: ROI labels
+
+For a subject with `T` clean trials, `Value` has shape `(T * 102, 8000)`.
+
+This code starts from source-space ROI time series that were exported upstream.
+For the full structural contract, see:
+
+- [docs/roi_input_contract.md](docs/roi_input_contract.md)
+
+In practice:
+
+- another lab can reuse the low-level pipeline if it can export ROI time series
+  in the same Brainstorm-like struct format
+- exact reproduction of the paper endpoints also requires the same
+  Schaefer-style ROI naming used by `meg_alzheimer/atlas.py`
+
+Validate a new dataset before running the full workflow:
+
+```bash
+python run_validate_inputs.py --data-root data --require-paper-atlas
+```
+
+For a public smoke example that follows the same struct contract, see:
+
+- [examples/README.md](examples/README.md)
+
 ## Paper figure set
+
+<details>
+<summary>Browse manuscript figures, scripts and required inputs</summary>
 
 The main figure set is:
 
@@ -282,6 +366,8 @@ Figure-to-script map:
 | `fig_endpoints_distributions` | `scripts/final_figures/build_endpoints_main_figure.py` | `subject_network_means.csv` + `endpoint_tests.csv` |
 | `fig_sensitivity_trials` | `scripts/final_figures/build_trials_threshold_sensitivity.py` | cached trial-level endpoint table or rebuilt endpoint DataFrame |
 
+</details>
+
 ## Supplementary simulation
 
 The repository also includes a separate simulation package:
@@ -290,35 +376,6 @@ The repository also includes a separate simulation package:
 
 It addresses one specific question: whether realistic SNR and trial-count
 differences could bias `AEC-orth` enough to account for the observed `H3` gap.
-
-## Installation
-
-The files below define the environment used to rerun the paper outputs:
-
-- [requirements.txt](requirements.txt)
-- [environment.yml](environment.yml)
-
-Using `venv`:
-
-```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-Using Conda:
-
-```bash
-conda env create -f environment.yml
-conda activate meg-alzheimer-paper
-```
-
-## Citation
-
-Citation metadata is available in:
-
-- [CITATION.cff](CITATION.cff)
 
 ## Tests
 
@@ -338,57 +395,63 @@ The tests cover:
 - endpoint reconstruction logic
 - trial-threshold sensitivity bookkeeping
 
-## Typical usage
+## Repository layout
 
-### Validate a new ROI time-series dataset
+<details>
+<summary>Browse the repository tree</summary>
 
-```bash
-python run_validate_inputs.py --data-root data --require-paper-atlas
+```text
+.
+├── README.md
+├── CITATION.cff
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── docs/
+│   ├── roi_input_contract.md
+│   ├── visual_assets.md
+│   └── assets/
+├── environment.yml
+├── examples/
+│   ├── README.md
+│   ├── build_example_dataset.py
+│   └── brainstorm_roi_small/
+│       └── data/
+├── requirements.txt
+├── tests/
+├── run_validate_inputs.py
+├── run_group_analysis.py
+├── run_strong_hypotheses.py
+├── run_paper_figures.py
+├── run_methodological_validation.py
+├── simulation_aec_snr_bias/
+├── supplementary/
+│   ├── README.md
+│   ├── source_tables/
+│   ├── tables/
+│   └── figures/
+├── meg_alzheimer/
+│   ├── __init__.py
+│   ├── atlas.py
+│   ├── connectivity.py
+│   ├── dataset.py
+│   ├── methodological_validation.py
+│   ├── pipeline.py
+│   ├── qc.py
+│   ├── robustness.py
+│   ├── signals.py
+│   ├── stats.py
+│   ├── strong_hypotheses.py
+│   └── viz.py
+└── scripts/
+    ├── README.md
+    ├── figures/
+    ├── final_figures/
+    ├── final_tables/
+    └── supplementary/
 ```
 
-### Validate the public example dataset
-
-```bash
-python run_validate_inputs.py \
-  --data-root examples/brainstorm_roi_small/data \
-  --require-paper-atlas
-```
-
-### Run the public smoke test
-
-```bash
-python -m unittest tests.test_public_smoke -v
-```
-
-### Full batch: raw data to paper figures
-
-```bash
-python run_paper_figures.py --data-root data --output-root outputs_full_cohort
-```
-
-This command runs the cohort pipeline, refreshes the strong `H1-H3` outputs,
-and regenerates the seven paper figures.
-
-### Rebuild figures only from existing outputs
-
-```bash
-python run_paper_figures.py \
-  --data-root data \
-  --output-root outputs_full_cohort \
-  --skip-group-analysis
-```
-
-### Run the scientific pipeline only
-
-```bash
-python run_group_analysis.py --data-root data --output-root outputs_full_cohort
-```
-
-### Refresh only the strong endpoint report
-
-```bash
-python run_strong_hypotheses.py --output-root outputs_full_cohort
-```
+</details>
 
 ## Reproducibility limits
 
@@ -405,6 +468,18 @@ python run_strong_hypotheses.py --output-root outputs_full_cohort
   compatible with the low-level signal-processing code, but not with the paper
   endpoint definitions without explicit adaptation.
 
-These are real limits of the public release. The goal is to make the part of
-the workflow that is available fully reproducible, without pretending that all
-upstream or clinical metadata are present here.
+The public release supports inspection of the analysis code, execution on
+synthetic inputs and access to selected aggregate supplementary results. Full
+cohort and manuscript reproduction requires the private ROI exports and derived
+outputs.
+
+Generated files under `figures/`, `tables/` and `outputs_full_cohort/` remain local
+artifacts. The Fisher-z source CSVs, LaTeX tables and rendered table figures are
+versioned under [supplementary/](supplementary/README.md). The presentation assets
+under `docs/assets/` are documented in [visual_assets.md](docs/visual_assets.md).
+
+## Citation
+
+Created by [Enia Ardid](https://github.com/enia-ardid). If you use the code,
+please cite the repository using [CITATION.cff](CITATION.cff) or GitHub's
+**Cite this repository** menu. The software is released under the [MIT license](LICENSE).

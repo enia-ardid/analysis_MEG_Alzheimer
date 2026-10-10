@@ -3,7 +3,21 @@
 This directory contains the Fisher-z supplementary material in the form used by
 the manuscript.
 
+## Visual summary
+
+[![Six endpoint effect sizes under mean-r and Fisher-z averaging, with absolute changes in Cohen's d.](../docs/assets/fisher-z-sensitivity.png)](../docs/assets/fisher-z-sensitivity.svg)
+
+This figure uses the existing
+[endpoint comparison CSV](source_tables/table_fisher_z_endpoint_comparison.csv).
+It shows point estimates and changes calculated from the rounded CSV values;
+it does not show confidence intervals or family-wise corrected p-values.
+See [figure provenance](../docs/visual_assets.md) for the source columns and
+calculation.
+
+## Contents and regeneration
+
 Contents:
+
 - `source_tables/`: source CSVs used to build the supplementary tables
 - `tables/`: LaTeX tables ready for `\input{...}`
 - `figures/`: optional PDF/PNG renders of those same tables

@@ -35,3 +35,6 @@ ENV/
 # Local exploratory and staging areas
 /analysis_alzheimer.ipynb
 /paper_preparation/
+
+# Local publishing notes
+/docs/sharing.md
