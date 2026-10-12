@@ -96,7 +96,7 @@ def edgewise_ttest(group1: np.ndarray, group2: np.ndarray, equal_var: bool = Fal
     Tmat[iu] = t
     Pmat[iu] = p
     Tmat = Tmat + Tmat.T
-    Pmat = Pmat + Pmat.T - np.eye(n_roi)
+    Pmat[(iu[1], iu[0])] = p
     np.fill_diagonal(Tmat, 0.0)
     np.fill_diagonal(Pmat, 1.0)
     return Tmat, Pmat
@@ -156,7 +156,7 @@ def permutations_edgewise(group1: np.ndarray, group2: np.ndarray, n_perm: int = 
     p_vals = np.array([np.mean(null_max >= value) for value in tobs], dtype=float)
     P = np.ones((n_roi, n_roi), dtype=float)
     P[iu] = p_vals
-    P = P + P.T - np.eye(n_roi)
+    P[(iu[1], iu[0])] = p_vals
     np.fill_diagonal(P, 1.0)
     return P
 
