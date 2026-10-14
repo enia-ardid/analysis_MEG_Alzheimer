@@ -3,10 +3,11 @@ from __future__ import annotations
 import unittest
 
 import numpy as np
-from scipy.signal import freqz
+from scipy.signal import freqz, hilbert
 
-from simulation_aec_snr_bias.connectivity import compute_gap
-from simulation_aec_snr_bias.signal_model import generate_coupled_pair, generate_subject, make_alpha_filter, sigma_from_snr
+from meg_alzheimer.connectivity import aec_from_envelope, aec_orth_from_analytic
+from simulation_aec_snr_bias.connectivity import compute_aec, compute_aec_orth, compute_gap, compute_trial_metrics_batch
+from simulation_aec_snr_bias.signal_model import generate_subject, make_alpha_filter, sigma_from_snr
 
 
 class SimulationTests(unittest.TestCase):
@@ -21,15 +22,41 @@ class SimulationTests(unittest.TestCase):
         metrics = generate_subject(rho=0.0, n_trials=100, trial_len=4000, fs=1000.0, sigma_meas=sigma_from_snr(10.0), rng=rng)
         self.assertLess(abs(metrics.aec), 0.02)
 
-    def test_aec_orth_does_not_exceed_aec(self) -> None:
+    def test_simulation_metrics_match_cohort_pipeline(self) -> None:
         rng = np.random.default_rng(2)
-        violations = 0
-        for _ in range(120):
-            x_i, x_k = generate_coupled_pair(rho=float(rng.uniform(0.0, 0.2)), n_samples=4000, fs=1000.0, sigma_meas=sigma_from_snr(5.0), rng=rng)
-            aec, aec_orth, _ = compute_gap(x_i, x_k)
-            if aec_orth > aec + 1e-9:
-                violations += 1
-        self.assertEqual(violations, 0)
+        x_i = rng.normal(size=(8, 512))
+        x_k = 0.2 * x_i + rng.normal(size=x_i.shape)
+        expected = []
+        for trial_i, trial_k in zip(x_i, x_k):
+            analytic = hilbert(np.stack([trial_i, trial_k]), axis=-1)
+            aec = aec_from_envelope(np.abs(analytic), fs=1000.0)[0, 1]
+            orth = aec_orth_from_analytic(analytic)[0, 1]
+            expected.append((aec, orth, aec - orth))
+        expected = np.asarray(expected)
+
+        # Include a counterexample to AEC-orth <= AEC, plus signed correlations.
+        self.assertLess(expected[:, 2].min(), -0.01)
+        self.assertLess(expected[:, 1].min(), -0.01)
+        for scale in (1.0, 1e-15, 1e3):
+            with self.subTest(scale=scale):
+                actual = np.column_stack(compute_trial_metrics_batch(scale * x_i, scale * x_k))
+                np.testing.assert_allclose(actual, expected, rtol=1e-10, atol=1e-12)
+                for index, (trial_i, trial_k) in enumerate(zip(scale * x_i, scale * x_k)):
+                    np.testing.assert_allclose(compute_gap(trial_i, trial_k), expected[index], rtol=1e-10, atol=1e-12)
+                    self.assertAlmostEqual(compute_aec(trial_i, trial_k), expected[index, 0])
+                    self.assertAlmostEqual(compute_aec_orth(trial_i, trial_k), expected[index, 1])
+
+    def test_zero_signals_return_finite_zero_metrics(self) -> None:
+        signal = np.random.default_rng(3).normal(size=512)
+        zero = np.zeros_like(signal)
+        x_i = np.stack([zero, signal, zero])
+        x_k = np.stack([signal, zero, zero])
+        with np.errstate(divide="raise", invalid="raise"):
+            np.testing.assert_array_equal(compute_trial_metrics_batch(x_i, x_k), np.zeros((3, 3)))
+            for trial_i, trial_k in zip(x_i, x_k):
+                self.assertEqual(compute_gap(trial_i, trial_k), (0.0, 0.0, 0.0))
+                self.assertEqual(compute_aec(trial_i, trial_k), 0.0)
+                self.assertEqual(compute_aec_orth(trial_i, trial_k), 0.0)
 
     def test_equal_trial_counts_do_not_create_large_gap_effect(self) -> None:
         rng = np.random.default_rng(7)

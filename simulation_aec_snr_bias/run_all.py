@@ -3,6 +3,7 @@ from __future__ import annotations
 """Entry point for the AEC-versus-AEC-orth SNR bias simulation."""
 
 import argparse
+import json
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +16,7 @@ if __package__ in {None, ""}:
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
 
+    from simulation_aec_snr_bias.connectivity import METRIC_DEFINITION
     from simulation_aec_snr_bias.experiments import (
         DEFAULT_DELTA_TRIALS,
         DEFAULT_LIBRARY_SIZE,
@@ -29,6 +31,7 @@ if __package__ in {None, ""}:
     )
     from simulation_aec_snr_bias.plotting import plot_experiment_1, plot_experiment_2, plot_experiment_3, plot_summary
 else:
+    from .connectivity import METRIC_DEFINITION
     from .experiments import (
         DEFAULT_DELTA_TRIALS,
         DEFAULT_LIBRARY_SIZE,
@@ -98,11 +101,19 @@ def _trial_diff_needed(exp2_df: pd.DataFrame) -> str:
 
 
 def _load_or_build_frame(csv_path: Path, force: bool, builder) -> pd.DataFrame:
-    """Load an existing CSV result or build it and save it."""
+    """Reuse a CSV only if it was computed with the current metric definition."""
+    metadata_path = csv_path.with_suffix(".metadata.json")
+    expected_metadata = {"metric_definition": METRIC_DEFINITION}
     if csv_path.exists() and not force:
-        return pd.read_csv(csv_path)
+        try:
+            metadata = json.loads(metadata_path.read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            metadata = None
+        if metadata == expected_metadata:
+            return pd.read_csv(csv_path)
     frame = builder()
     frame.to_csv(csv_path, index=False)
+    metadata_path.write_text(json.dumps(expected_metadata, indent=2) + "\n")
     return frame
 
 
@@ -157,17 +168,19 @@ def main() -> None:
         ),
     )
 
-    if targeted_path.exists() and not args.force:
-        targeted = pd.read_csv(targeted_path).iloc[0].to_dict()
-    else:
-        targeted = run_targeted_trial_difference_scenario(
-            snr=5.0,
-            delta_trials=3,
-            n_iter=summary_iter,
-            random_seed=args.random_seed + 3,
-            library_size=library_size,
-        )
-        pd.DataFrame([targeted]).to_csv(targeted_path, index=False)
+    targeted = _load_or_build_frame(
+        targeted_path,
+        args.force,
+        lambda: pd.DataFrame([
+            run_targeted_trial_difference_scenario(
+                snr=5.0,
+                delta_trials=3,
+                n_iter=summary_iter,
+                random_seed=args.random_seed + 3,
+                library_size=library_size,
+            )
+        ]),
+    ).iloc[0].to_dict()
 
     np.savez(
         results_dir / "simulation_results.npz",

@@ -27,6 +27,10 @@ conditions could generate the observed reduction in the alpha
 - Alpha band: `8-12 Hz`
 - FIR filter: Hamming window, `order = 801`, `filtfilt`
 - Default true connectivity: `rho = 0.08`
+- AEC-orth uses the same symmetric, signed correlation definition as the cohort
+  pipeline. It is not capped at AEC; `AEC - AEC-orth` can be negative for an
+  individual trial. Scalar and batch calculations are tested against the cohort
+  implementation, including small-amplitude and zero signals.
 - True connectivity is implemented as correlated low-frequency envelopes carried
   by a shared alpha process with a fixed non-zero phase lag. This choice is
   deliberate: it preserves genuine envelope coupling under orthogonalization at
@@ -65,6 +69,20 @@ Outputs:
 
 - PDFs under `simulation_aec_snr_bias/figures/`
 - CSV and NPZ files under `simulation_aec_snr_bias/results/`
+
+### Metric correction and cached results
+
+Earlier versions capped AEC-orth at AEC in the simulation, forcing every trial's
+gap to be non-negative. That cap was absent from the cohort pipeline and has
+been removed. Simulation results produced with the earlier definition must be
+regenerated before interpreting the SNR and trial-count experiments.
+
+The runner now records the metric definition in a `.metadata.json` file beside
+each result CSV. Missing metadata, invalid JSON or an older metric definition
+triggers recomputation, including the targeted trial-difference summary. These
+metadata check the metric definition only: use `--force` when changing run parameters or
+switching from a quick run to a manuscript-scale run. Quick runs verify execution
+and are not sufficient for scientific interpretation.
 
 ## Interpretation
 

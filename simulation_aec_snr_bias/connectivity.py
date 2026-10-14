@@ -6,7 +6,9 @@ import numpy as np
 from scipy.signal import hilbert
 
 
-EPSILON = 1e-12
+# Used by the runner to reject cached results from the former clipped metric.
+METRIC_DEFINITION = "symmetric_signed_aec_orth_v2"
+CORRELATION_NORM_EPSILON = 1e-20
 
 
 def analytic_signal(x: np.ndarray) -> np.ndarray:
@@ -42,10 +44,18 @@ def _rowwise_correlation(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     y = np.asarray(y, dtype=float)
     x = x - x.mean(axis=-1, keepdims=True)
     y = y - y.mean(axis=-1, keepdims=True)
-    denom = np.linalg.norm(x, axis=-1) * np.linalg.norm(y, axis=-1)
-    denom = np.where(denom < EPSILON, np.nan, denom)
-    corr = np.sum(x * y, axis=-1) / denom
-    return np.nan_to_num(corr, nan=0.0, posinf=0.0, neginf=0.0)
+    norm_x = np.linalg.norm(x, axis=-1)
+    norm_y = np.linalg.norm(y, axis=-1)
+    numerator = np.sum(x * y, axis=-1)
+    # Match the cohort pipeline's per-signal norm threshold, including for
+    # small-amplitude signals. Undefined correlations are represented as zero.
+    corr = np.divide(
+        numerator,
+        norm_x * norm_y,
+        out=np.zeros_like(numerator),
+        where=(norm_x >= CORRELATION_NORM_EPSILON) & (norm_y >= CORRELATION_NORM_EPSILON),
+    )
+    return np.clip(np.nan_to_num(corr, nan=0.0, posinf=0.0, neginf=0.0), -1.0, 1.0)
 
 
 def compute_aec(x_i: np.ndarray, x_k: np.ndarray) -> float:
@@ -63,7 +73,7 @@ def compute_aec(x_i: np.ndarray, x_k: np.ndarray) -> float:
     """
     z_i = analytic_signal(x_i)
     z_k = analytic_signal(x_k)
-    return float(np.corrcoef(np.abs(z_i), np.abs(z_k))[0, 1])
+    return float(_rowwise_correlation(np.abs(z_i), np.abs(z_k)))
 
 
 def compute_aec_orth(x_i: np.ndarray, x_k: np.ndarray) -> float:
@@ -74,27 +84,20 @@ def compute_aec_orth(x_i: np.ndarray, x_k: np.ndarray) -> float:
     ``z_{k⊥i}(t) = Im[z_k(t) exp(-j arg(z_i(t)))]``
     ``z_{i⊥k}(t) = Im[z_i(t) exp(-j arg(z_k(t)))]``
 
-    and returns the average of both directional correlations.
+    and returns the average of both directional correlations, using the same
+    definition as ``meg_alzheimer.connectivity.aec_orth_from_analytic``.
+    The result is not constrained to be less than or equal to AEC.
     """
-    z_i = analytic_signal(x_i)
-    z_k = analytic_signal(x_k)
-    phase_i = np.conj(z_i / (np.abs(z_i) + EPSILON))
-    phase_k = np.conj(z_k / (np.abs(z_k) + EPSILON))
-    z_k_orth_i = np.imag(z_k * phase_i)
-    z_i_orth_k = np.imag(z_i * phase_k)
-    corr_1 = float(np.corrcoef(np.abs(z_i), np.abs(z_k_orth_i))[0, 1])
-    corr_2 = float(np.corrcoef(np.abs(z_k), np.abs(z_i_orth_k))[0, 1])
-    value = 0.5 * (corr_1 + corr_2)
-    aec = float(np.corrcoef(np.abs(z_i), np.abs(z_k))[0, 1])
-    value = min(value, aec)
-    return float(np.nan_to_num(value, nan=0.0, posinf=0.0, neginf=0.0))
+    return compute_gap(x_i, x_k)[1]
 
 
 def compute_gap(x_i: np.ndarray, x_k: np.ndarray) -> tuple[float, float, float]:
     """Return ``(AEC, AEC_orth, AEC - AEC_orth)`` for one trial."""
-    aec = compute_aec(x_i, x_k)
-    aec_orth = compute_aec_orth(x_i, x_k)
-    return aec, aec_orth, aec - aec_orth
+    metrics = compute_trial_metrics_batch(
+        np.asarray(x_i, dtype=float)[None, :],
+        np.asarray(x_k, dtype=float)[None, :],
+    )
+    return tuple(float(values[0]) for values in metrics)
 
 
 def compute_trial_metrics_batch(x_i: np.ndarray, x_k: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -117,13 +120,15 @@ def compute_trial_metrics_batch(x_i: np.ndarray, x_k: np.ndarray) -> tuple[np.nd
     env_k = np.abs(z_k)
     aec = _rowwise_correlation(env_i, env_k)
 
-    phase_i = np.conj(z_i / (np.abs(z_i) + EPSILON))
-    phase_k = np.conj(z_k / (np.abs(z_k) + EPSILON))
+    # Use phase rotations as in the cohort pipeline. Adding an absolute
+    # epsilon to the amplitude would change the projection with signal scale.
+    phase_i = np.exp(-1j * np.angle(z_i))
+    phase_k = np.exp(-1j * np.angle(z_k))
     z_k_orth_i = np.imag(z_k * phase_i)
     z_i_orth_k = np.imag(z_i * phase_k)
     corr_1 = _rowwise_correlation(env_i, np.abs(z_k_orth_i))
     corr_2 = _rowwise_correlation(env_k, np.abs(z_i_orth_k))
     aec_orth = 0.5 * (corr_1 + corr_2)
-    aec_orth = np.minimum(aec_orth, aec)
+    # Preserve signed correlations and negative gaps, as in the cohort code.
     gap = aec - aec_orth
     return aec, aec_orth, gap
