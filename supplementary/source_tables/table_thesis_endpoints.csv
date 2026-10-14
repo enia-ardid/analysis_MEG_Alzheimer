@@ -1,0 +1,7 @@
+endpoint_id,hypothesis,band,metric,mean_converter,mean_nonconverter,delta_converter_minus_nonconverter,cohen_d,p_one_sided,p_max_t,holm_significant,n_converter,n_nonconverter
+H1_AEC,H1,alpha,AEC,0.0688,0.0849,-0.0161,-0.587,0.0083,0.028,True,35,35
+H1_AECorth,H1,alpha,AEC-orth,0.0218,0.0319,-0.0101,-0.503,0.0196,0.064,True,35,35
+H2_AEC,H2,beta,AEC,0.0439,0.0505,-0.0066,-0.436,0.0365,0.109,True,35,35
+H2_AECorth,H2,beta,AEC-orth,0.0135,0.0191,-0.0056,-0.563,0.0109,0.035,True,35,35
+H3_gap_full,H3,alpha,gap_full,0.0470,0.0530,-0.0060,-0.575,0.0095,0.030,True,35,35
+H3_gap_inter,H3,alpha,gap_inter,0.0469,0.0525,-0.0056,-0.545,0.0130,0.043,True,35,35

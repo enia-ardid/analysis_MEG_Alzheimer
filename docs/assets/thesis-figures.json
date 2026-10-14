@@ -1,0 +1,43 @@
+{
+  "source_title": "Caracterización de la progresión del Alzheimer mediante conectividad funcional en MEG",
+  "author": "Enia Ardid Prats",
+  "year": 2026,
+  "source_sha256": "3d99ccfd786071f5f75eff6c1138ef271ef251a546b795046bae11c86ab1dde2",
+  "method": "PDF page-region rendering. Plot content preserved; text and EXIF metadata omitted from PNG exports.",
+  "figures": [
+    {
+      "asset": "thesis-alpha-networks.png",
+      "thesis_figure": "3a",
+      "pdf_page": 17,
+      "printed_page": 16,
+      "crop_top_left_fraction": [
+        0.225,
+        0.12,
+        0.785,
+        0.38
+      ],
+      "size_pixels": [
+        2799,
+        1838
+      ],
+      "sha256": "61735b42526cb6abbbea1992548ee0638b054db80282d5d2f4c7091a11c1e160"
+    },
+    {
+      "asset": "thesis-composite-breakdown.png",
+      "thesis_figure": "5",
+      "pdf_page": 20,
+      "printed_page": 19,
+      "crop_top_left_fraction": [
+        0.177,
+        0.122,
+        0.825,
+        0.418
+      ],
+      "size_pixels": [
+        2800,
+        1808
+      ],
+      "sha256": "af5dcfd0d1565181905879b4bafa6e17569a54145ab9799359c52ff8e8bbe629"
+    }
+  ]
+}

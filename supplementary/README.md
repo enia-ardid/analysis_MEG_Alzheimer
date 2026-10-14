@@ -1,7 +1,22 @@
-# Supplementary Assets
+# Supplementary results
 
-This directory contains the Fisher-z supplementary material in the form used by
-the manuscript.
+This directory contains aggregate thesis results and the Fisher-z sensitivity
+tables. The [results gallery](../docs/results.md) puts them alongside the cohort
+network figures.
+
+## Thesis endpoint summary
+
+[table_thesis_endpoints.csv](source_tables/table_thesis_endpoints.csv) reproduces
+the displayed values in thesis Table 2: group means, differences, effect sizes,
+one-sided p-values, max-T p-values and Holm decisions for the six endpoints.
+It contains aggregate statistics for 35 participants per group. The thesis
+max-T analysis used 10,000 permutations; the table retains its rounding.
+
+Rebuild its presentation figure with:
+
+```bash
+python scripts/figures/build_project_assets.py
+```
 
 ## Visual summary
 
@@ -22,7 +37,7 @@ Contents:
 - `tables/`: LaTeX tables ready for `\input{...}`
 - `figures/`: optional PDF/PNG renders of those same tables
 
-Regenerate everything from the repository root with:
+Regenerate the Fisher-z tables and their renders from the repository root with:
 
 ```bash
 python scripts/supplementary/make_fisher_z_tables.py

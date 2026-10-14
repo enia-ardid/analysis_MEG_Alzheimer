@@ -6,6 +6,9 @@ change the scientific definitions.
 
 ## Figure scripts
 
+- [figures/build_project_assets.py](figures/build_project_assets.py)
+  Builds the README endpoint summary and social preview from versioned
+  aggregate thesis results and the published alpha network figure.
 - [final_figures/build_pipeline_overview.py](final_figures/build_pipeline_overview.py)
 - [final_figures/build_qc_valid_trials_figure.py](final_figures/build_qc_valid_trials_figure.py)
 - [final_figures/build_network_heatmaps.py](final_figures/build_network_heatmaps.py)
@@ -13,7 +16,7 @@ change the scientific definitions.
 - [final_figures/build_endpoints_main_figure.py](final_figures/build_endpoints_main_figure.py)
 - [final_figures/build_trials_threshold_sensitivity.py](final_figures/build_trials_threshold_sensitivity.py)
 
-These are the scripts called by [run_paper_figures.py](../run_paper_figures.py).
+The `final_figures/` scripts are called by [run_paper_figures.py](../run_paper_figures.py).
 
 ## Table scripts
 
