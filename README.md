@@ -1,6 +1,6 @@
 # MEG connectivity in Alzheimer's disease
 
-**From regional brain signals to network-level comparisons of disease progression.**
+**Resting-state MEG connectivity in mild cognitive impairment.**
 
 [![Public tests](https://github.com/enia-ardid/analysis_MEG_Alzheimer/actions/workflows/ci.yml/badge.svg)](https://github.com/enia-ardid/analysis_MEG_Alzheimer/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-306998?style=flat)](environment.yml)

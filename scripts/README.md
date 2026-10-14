@@ -1,8 +1,7 @@
 # Manuscript Scripts
 
-This directory contains the small scripts that turn pipeline outputs into paper
-figures and tables. They sit downstream of the analysis code and should not
-change the scientific definitions.
+Scripts for building manuscript figures and tables from pipeline outputs.
+Endpoint definitions and statistical calculations live in `meg_alzheimer/`.
 
 ## Figure scripts
 
@@ -30,9 +29,3 @@ The `final_figures/` scripts are called by [run_paper_figures.py](../run_paper_f
 This script reads the Fisher-z source CSVs in `supplementary/source_tables/`
 and writes the LaTeX tables and optional PDF/PNG table renders used in the
 supplementary material.
-
-## Rule of thumb
-
-If a script in this directory starts redefining the analysis itself, it is in
-the wrong place. These scripts are for formatting, exporting, and assembling
-paper-facing outputs from results that already exist.

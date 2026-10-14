@@ -1048,13 +1048,13 @@ def _write_report(paths: ValidationPaths, inputs: ValidationInputs, a_tables: di
         "",
         "This report checks whether the current H1-H3 results, with emphasis on H3_gap_full, are robust to reasonable methodological alternatives already supported by the available cohort outputs.",
         "",
-        "## Executive summary",
+        "## Analysis summary",
         "",
         _df_html(robustness_matrix, max_rows=len(robustness_matrix)),
         "![Supplementary methodological summary](figures/block_summary_methodological_panel.png)",
         "",
-        "- Paper-ready text: [paper_methodological_subsections.md](paper_methodological_subsections.md)",
-        "- Figure placement note: [paper_figure_recommendations.md](paper_figure_recommendations.md)",
+        "- Methods and results: [paper_methodological_subsections.md](paper_methodological_subsections.md)",
+        "- Figure index: [paper_figure_recommendations.md](paper_figure_recommendations.md)",
         "",
         "## Block A. Average and composite sensitivity",
         "",
@@ -1136,7 +1136,6 @@ def _write_report(paths: ValidationPaths, inputs: ValidationInputs, a_tables: di
         f"- H3_gap_full survives {int((a_tables['a4']['effect_kept']).sum())}/9 leave-one-network-out perturbations.",
         f"- Trial-count dependence is weak: cohort-level H3_gap_full correlation with valid trials = {d_tables['correlations'].loc[(d_tables['correlations']['endpoint_id'] == 'H3_gap_full') & (d_tables['correlations']['scope'] == 'all'), 'pearson_r'].iloc[0]:.3f}.",
         f"- TempPar ROI direction consistency = {100.0 * c_table['expected_direction'].mean():.1f}%.",
-        "- Where an analysis could not be completed from the accessible outputs, the limitation is documented explicitly rather than silently ignored.",
     ]
     (paths.report_root / "methodological_validation_report.md").write_text("\n".join(report) + "\n")
 
@@ -1159,7 +1158,7 @@ def _write_paper_text(paths: ValidationPaths, a_tables: dict[str, pd.DataFrame],
     g_temp = g_table.loc[g_table["network"] == "TempPar"].iloc[0]
     power_h3 = power_table.loc[power_table["endpoint_id"] == "H3_gap_full"].iloc[0]
 
-    methods_text = f"""# Paper-ready methodological validation text
+    methods_text = f"""# Methodological validation: methods and results
 
 ## Methods subsection
 
@@ -1189,70 +1188,26 @@ Distributional diagnostics were compatible with the use of Welch's test (`Shapir
 """
     (paths.report_root / "paper_methodological_subsections.md").write_text(methods_text)
 
-    figure_note = """# Figure recommendations for the manuscript
+    figure_note = """# Methodological validation figures
 
-## Main text
+Figures are written under `figures/` in the validation report directory.
 
-1. `fig_sensitivity_trials.png`
-   - Keep this as the main trial-count sensitivity figure if the manuscript needs one direct answer to the SNR / unequal-trials objection.
-   - It already speaks to the most likely reviewer concern.
+| Figure | Analysis |
+| --- | --- |
+| `block_summary_methodological_panel.pdf` | Band and network comparisons, with outlier-removal sensitivity |
+| `block_f_band_specificity.png` | TempPar full-gap effect across frequency bands |
+| `block_g_network_specificity.png` | Alpha full-gap effect across center networks |
+| `block_d_h3_threshold_sensitivity.png` | H3 effects after restricting the minimum number of valid trials |
+| `block_d_gap_vs_trialcount.png` | H3 endpoint values against valid trial counts |
+| `block_e_h3_outliers.png` | H3 values and within-group IQR outliers |
+| `block_b1_aec_vs_orth_scatter.png` | Subject-level relationship between AEC and AEC-orth |
+| `block_c_tempPar_roi_gap_barplot.png` | Group gap differences for TempPar ROIs |
+| `block_a2_mean_vs_median_scatter.png` | Endpoint values under mean and median trial aggregation |
+| `block_b2_trial_variance_by_group.png` | Within-subject gap variance by group |
+| `block_i_power_curves.png` | Estimated power as a function of sample size |
 
-2. `block_f_band_specificity.png`
-   - Best candidate from the new methodological block for the main text.
-   - It is compact, easy to parse, and makes a biologically meaningful point: the gap effect is strongest in alpha rather than being a generic all-band artifact.
-
-## Supplementary figures
-
-1. `block_summary_methodological_panel.pdf`
-   - Best supplementary figure from this validation block.
-   - It compresses three messages into one clean panel: alpha specificity, TempPar specificity, and resistance to outlier removal.
-
-2. `block_g_network_specificity.png`
-   - Strong supplementary backup for the center-network analysis.
-   - Use it if you want the full network ranking after the combined panel.
-
-3. `block_d_h3_threshold_sensitivity.png`
-   - Useful supplementary robustness figure.
-   - It shows that the effect weakens only when the sample is aggressively restricted, which is a power issue rather than a sign reversal.
-
-4. `block_d_gap_vs_trialcount.png`
-   - Useful if a reviewer explicitly asks about the relationship between H3 and valid trials.
-   - The figure is more diagnostic than narrative, so it fits better in the supplement.
-
-5. `block_e_h3_outliers.png`
-   - Good supplementary support.
-   - It shows that the effect is not carried by a few extreme subjects.
-
-6. `block_b1_aec_vs_orth_scatter.png`
-   - Keep as supplementary unless the paper explicitly wants to emphasize that AEC and AEC-orth are not interchangeable.
-   - Scientifically useful, but less central than band and network specificity.
-
-7. `block_c_tempPar_roi_gap_barplot.png`
-   - Keep as supplementary.
-   - It is valuable for anatomical coherence, but the number of ROIs is small and the figure is less essential than the network-level result.
-
-8. `block_a2_mean_vs_median_scatter.png`
-   - Supplement only.
-   - Useful as a reviewer-facing aggregation check, but not strong enough for the main narrative.
-
-9. `block_b2_trial_variance_by_group.png`
-   - Supplement only.
-   - Important for the rebuttal to an SNR-instability objection, but the interpretation needs text and could distract in the main manuscript.
-
-10. `block_i_power_curves.png`
-   - Supplement only.
-   - Useful for explaining why H1/H2 are weaker, but it is not a primary result figure.
-
-## Practical recommendation
-
-If you add only one new methodological figure to the supplement, use `block_summary_methodological_panel.pdf`.
-
-If you add two methodological figures to the main paper, use:
-
-1. `fig_sensitivity_trials.png`
-2. `block_f_band_specificity.png`
-
-Everything else should stay in the supplement unless the journal explicitly asks for a fuller robustness panel in the main text.
+The manuscript pipeline separately builds `fig_sensitivity_trials.png` through
+`scripts/final_figures/build_trials_threshold_sensitivity.py`.
 """
     (paths.report_root / "paper_figure_recommendations.md").write_text(figure_note)
 
